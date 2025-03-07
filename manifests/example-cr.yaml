@@ -1,0 +1,7 @@
+apiVersion: example.com/v1
+kind: MyResource
+metadata:
+  name: example-resource
+spec:
+  message: "Hello from Rust K8s Operator!"
+  replicaCount: 3
