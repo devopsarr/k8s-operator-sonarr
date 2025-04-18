@@ -3,11 +3,17 @@ use k8s_opeartor_sonarr::crd::sonarr::Sonarr;
 use std::fs;
 use std::path::Path;
 
-use tracing::{info,debug};
+use tracing::{debug, Level};
+use tracing_subscriber::{fmt, EnvFilter};
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
+    fmt()
+        .with_env_filter(EnvFilter::from_default_env().add_directive(Level::INFO.into()))
+        .with_writer(std::io::stdout) // Forza l'output su stdout
+        .init();
+    debug!("Build CRD...");
     // Generate CRD definition
     let crd = Sonarr::crd();
     
