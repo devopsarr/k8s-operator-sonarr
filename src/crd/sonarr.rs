@@ -1,5 +1,3 @@
-use chrono::{DateTime, Utc};
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
 use kube::CustomResource;
 use schemars::JsonSchema; 
 use serde::{Deserialize, Serialize};
@@ -15,9 +13,10 @@ use serde::{Deserialize, Serialize};
     namespaced
 )]
 #[kube(status = "SonarrStatus")]
+#[serde(rename_all = "camelCase")]
 pub struct SonarrSpec {
     pub message: String,
-    pub replica_count: Option<i32>,
+    pub replica_count: Option<i32>, //TODO: found a way to write compliant with code style
 }
 
 /// Status object for our CRD

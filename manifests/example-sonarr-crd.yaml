@@ -1,7 +1,7 @@
-apiVersion: example.com/v1
-kind: MyResource
+apiVersion: devopsarr.io/v1
+kind: Sonarr
 metadata:
-  name: example-resource
+  name: sonarr
 spec:
   message: "Hello from Rust K8s Operator!"
   replicaCount: 3

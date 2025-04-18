@@ -7,14 +7,15 @@ use kube::{
 };
 use std::sync::Arc;
 use tokio::signal;
-use tracing::info;
+use tracing::{error, info, Level};
+use tracing_subscriber::{fmt, EnvFilter};
 
-mod crd;
 mod controller;
+mod crd;
 mod error;
 
+use controller::reconciler::{error_policy, reconcile, SonarrState};
 use crd::sonarr::Sonarr;
-use controller::reconciler::{reconcile, error_policy, SonarrState};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -23,20 +24,22 @@ struct Opts {
     namespace: Option<String>,
 }
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
-    tracing_subscriber::fmt::init();
+    fmt()
+        .with_env_filter(EnvFilter::from_default_env().add_directive(Level::INFO.into()))
+        .with_writer(std::io::stdout) // Forza l'output su stdout
+        .init();
     info!("Starting rust-k8s-operator");
 
     // Parse command-line arguments
     let opts = Opts::parse();
-    
+
     // Create Kubernetes client
     let client = Client::try_default().await?;
     info!("Successfully connected to Kubernetes cluster");
-
+    
     // Shared state for the controller
     let state = Arc::new(SonarrState::new(client.clone()));
 
@@ -54,8 +57,12 @@ async fn main() -> Result<()> {
         .run(reconcile, error_policy, state)
         .for_each(|res| async move {
             match res {
-                Ok(o) => info!("Reconciled: {:?}", o),
-                Err(e) => tracing::error!("Reconcile error: {:?}", e),
+                Ok(o) => {
+                    info!("Reconciled: {:?}", o);
+                }
+                Err(e) => {
+                    error!("Reconcile error: {:?}", e);
+                }
             }
         })
         .await;

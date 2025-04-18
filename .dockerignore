@@ -1,0 +1,8 @@
+/.github
+/manifests
+/target
+.vscode
+.cursorrules
+.idea
+Cargo.lock
+Dockerfile

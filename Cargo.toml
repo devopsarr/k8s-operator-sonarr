@@ -21,7 +21,7 @@ clap = { version = "4.3.19", features = ["derive"] }
 schemars = "0.8.12"
 
 [[bin]]
-name = "k8s-opeartor-sonarr"
+name = "k8s-operator-sonarr"
 path = "src/main.rs"
 
 [[bin]]
