@@ -1,0 +1,165 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: sonarrdelayprofiles.devopsarr.io
+spec:
+  group: devopsarr.io
+  names:
+    categories: []
+    kind: SonarrDelayProfile
+    plural: sonarrdelayprofiles
+    shortNames:
+    - sdp
+    singular: sonarrdelayprofile
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.preferredProtocol
+      name: Protocol
+      type: string
+    - jsonPath: .spec.usenetDelay
+      name: UsenetDelay
+      type: integer
+    - jsonPath: .spec.torrentDelay
+      name: TorrentDelay
+      type: integer
+    - jsonPath: .status.id
+      name: ID
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for SonarrDelayProfileSpec via `CustomResource`
+        properties:
+          spec:
+            description: |-
+              SonarrDelayProfile represents a delay profile configuration in Sonarr
+              Delay profiles control how long Sonarr waits before grabbing a release
+            properties:
+              bypassIfAboveCustomFormatScore:
+                default: false
+                description: Bypass delay if above custom format score
+                type: boolean
+              bypassIfHighestQuality:
+                default: false
+                description: Bypass delay if highest quality
+                type: boolean
+              enableTorrent:
+                default: true
+                description: Enable Torrent downloads
+                type: boolean
+              enableUsenet:
+                default: true
+                description: Enable Usenet downloads
+                type: boolean
+              minimumCustomFormatScore:
+                default: 0
+                description: Minimum custom format score to bypass delay
+                format: int32
+                type: integer
+              order:
+                default: 0
+                description: Order of this profile (lower = higher priority)
+                format: int32
+                type: integer
+              preferredProtocol:
+                default: usenet
+                description: Preferred download protocol
+                enum:
+                - usenet
+                - torrent
+                type: string
+              sonarrInstanceRef:
+                description: Reference to the SonarrInstance
+                properties:
+                  name:
+                    default: ''
+                    description: Name of the SonarrInstance resource
+                    type: string
+                  namespace:
+                    description: Namespace of the SonarrInstance (optional, defaults to same namespace)
+                    nullable: true
+                    type: string
+                type: object
+              tags:
+                default: []
+                description: Tags to apply this delay profile to
+                items:
+                  format: int32
+                  type: integer
+                type: array
+              torrentDelay:
+                default: 0
+                description: Delay for Torrents in minutes
+                format: int32
+                type: integer
+              usenetDelay:
+                default: 0
+                description: Delay for Usenet in minutes
+                format: int32
+                type: integer
+            required:
+            - sonarrInstanceRef
+            type: object
+          status:
+            nullable: true
+            properties:
+              conditions:
+                default: []
+                description: Current conditions
+                items:
+                  description: Condition contains details for one aspect of the current state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating details about the transition. This may be an empty string.
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              id:
+                description: Sonarr Delay Profile ID
+                format: int32
+                nullable: true
+                type: integer
+              observedGeneration:
+                default: 0
+                description: Observed generation
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        title: SonarrDelayProfile
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

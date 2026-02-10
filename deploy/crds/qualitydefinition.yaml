@@ -1,0 +1,163 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: sonarrqualitydefinitions.devopsarr.io
+spec:
+  group: devopsarr.io
+  names:
+    categories: []
+    kind: SonarrQualityDefinition
+    plural: sonarrqualitydefinitions
+    shortNames:
+    - sqd
+    singular: sonarrqualitydefinition
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.qualityName
+      name: Quality
+      type: string
+    - jsonPath: .spec.title
+      name: Title
+      type: string
+    - jsonPath: .spec.minSize
+      name: MinSize
+      type: number
+    - jsonPath: .spec.maxSize
+      name: MaxSize
+      type: number
+    - jsonPath: .status.id
+      name: ID
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for SonarrQualityDefinitionSpec via `CustomResource`
+        properties:
+          spec:
+            description: |-
+              SonarrQualityDefinition represents a quality definition configuration in Sonarr
+              Quality definitions control the size limits for each quality level
+            properties:
+              maxSize:
+                description: Maximum size in MB per minute of runtime (None = unlimited)
+                format: double
+                nullable: true
+                type: number
+              minSize:
+                description: Minimum size in MB per minute of runtime
+                format: double
+                nullable: true
+                type: number
+              preferredSize:
+                description: Preferred size in MB per minute of runtime
+                format: double
+                nullable: true
+                type: number
+              qualityName:
+                description: Quality name (must match existing quality in Sonarr)
+                enum:
+                - UNKNOWN
+                - SDTV
+                - DVD
+                - WEBDL-480p
+                - WEBRip-480p
+                - Bluray-480p
+                - HDTV-720p
+                - HDTV-1080p
+                - Raw-HD
+                - WEBDL-720p
+                - WEBRip-720p
+                - Bluray-720p
+                - WEBDL-1080p
+                - WEBRip-1080p
+                - Bluray-1080p
+                - Bluray-1080p Remux
+                - HDTV-2160p
+                - WEBDL-2160p
+                - WEBRip-2160p
+                - Bluray-2160p
+                - Bluray-2160p Remux
+                type: string
+              sonarrInstanceRef:
+                description: Reference to the SonarrInstance
+                properties:
+                  name:
+                    default: ''
+                    description: Name of the SonarrInstance resource
+                    type: string
+                  namespace:
+                    description: Namespace of the SonarrInstance (optional, defaults to same namespace)
+                    nullable: true
+                    type: string
+                type: object
+              title:
+                description: Title/display name for this quality
+                nullable: true
+                type: string
+            required:
+            - qualityName
+            - sonarrInstanceRef
+            type: object
+          status:
+            nullable: true
+            properties:
+              conditions:
+                default: []
+                description: Current conditions
+                items:
+                  description: Condition contains details for one aspect of the current state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating details about the transition. This may be an empty string.
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              id:
+                description: Sonarr Quality Definition ID
+                format: int32
+                nullable: true
+                type: integer
+              observedGeneration:
+                default: 0
+                description: Observed generation
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        title: SonarrQualityDefinition
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sonarr-operator
+  namespace: sonarr-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sonarr-operator
+rules:
+  # Core API resources
+  - apiGroups: ['']
+    resources: ['secrets']
+    verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete']
+  - apiGroups: ['']
+    resources: ['services']
+    verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete']
+  - apiGroups: ['']
+    resources: ['persistentvolumeclaims']
+    verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete']
+  - apiGroups: ['']
+    resources: ['events']
+    verbs: ['create', 'patch']
+  # Apps API
+  - apiGroups: ['apps']
+    resources: ['deployments']
+    verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete']
+  # Networking API (Ingress)
+  - apiGroups: ['networking.k8s.io']
+    resources: ['ingresses']
+    verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete']
+  # Gateway API (HTTPRoute)
+  - apiGroups: ['gateway.networking.k8s.io']
+    resources: ['httproutes']
+    verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete']
+  # Sonarr CRDs
+  - apiGroups: ['devopsarr.io']
+    resources: ['*']
+    verbs: ['*']
+  - apiGroups: ['devopsarr.io']
+    resources: ['*/status']
+    verbs: ['get', 'patch', 'update']
+  - apiGroups: ['devopsarr.io']
+    resources: ['*/finalizers']
+    verbs: ['update']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sonarr-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sonarr-operator
+subjects:
+  - kind: ServiceAccount
+    name: sonarr-operator
+    namespace: sonarr-operator-system

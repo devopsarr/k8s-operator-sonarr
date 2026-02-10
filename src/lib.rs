@@ -1,6 +1,23 @@
-// File: src/lib.rs
+//! Sonarr Kubernetes Operator Library
+//!
+//! This library provides the core types and functionality for the Sonarr Kubernetes Operator.
+//! It exposes CRDs, controllers, and API clients for managing Sonarr instances via Kubernetes.
 
-// Re-export the crd module for use in the generate_crd binary
-pub mod crd;
-pub mod controller;
+pub mod api;
+pub mod controllers;
+pub mod crds;
 pub mod error;
+
+pub use error::{Error, Result};
+
+use std::sync::Arc;
+use kube::Client;
+use crate::api::SonarrClientFactory;
+
+/// Shared context for all controllers
+pub struct Context {
+    /// Kubernetes client
+    pub client: Client,
+    /// Sonarr API client factory
+    pub sonarr_client_factory: Arc<SonarrClientFactory>,
+}

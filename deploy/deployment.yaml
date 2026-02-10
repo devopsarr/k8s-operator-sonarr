@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarr-operator
+  namespace: sonarr-operator-system
+  labels:
+    app.kubernetes.io/name: sonarr-operator
+    app.kubernetes.io/component: operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sonarr-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sonarr-operator
+    spec:
+      serviceAccountName: sonarr-operator
+      containers:
+        - name: operator
+          image: k3d-registry:5000/sonarr-operator:latest
+          imagePullPolicy: Always
+          env:
+            - name: RUST_LOG
+              value: 'info,sonarr_operator=debug'
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+      securityContext:
+        fsGroup: 65534

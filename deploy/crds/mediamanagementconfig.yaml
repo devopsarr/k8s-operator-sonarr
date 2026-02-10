@@ -1,0 +1,203 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: sonarrmediamanagementconfigs.devopsarr.io
+spec:
+  group: devopsarr.io
+  names:
+    categories: []
+    kind: SonarrMediaManagementConfig
+    plural: sonarrmediamanagementconfigs
+    shortNames:
+    - smmc
+    singular: sonarrmediamanagementconfig
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.sonarrInstanceRef.name
+      name: Instance
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for SonarrMediaManagementConfigSpec via `CustomResource`
+        properties:
+          spec:
+            description: |-
+              SonarrMediaManagementConfig configures media management settings for a Sonarr instance.
+              Only one SonarrMediaManagementConfig per Sonarr instance is allowed.
+            properties:
+              autoUnmonitorPreviouslyDownloadedEpisodes:
+                description: Auto unmonitor previously downloaded episodes when marked as deleted
+                nullable: true
+                type: boolean
+              chmodFolder:
+                description: chmod folder permissions (e.g., "755")
+                nullable: true
+                type: string
+              chownGroup:
+                description: chown group
+                nullable: true
+                type: string
+              copyUsingHardlinks:
+                description: Use hardlinks instead of copy when possible
+                nullable: true
+                type: boolean
+              createEmptySeriesFolders:
+                description: Create empty series folders during disk scan
+                nullable: true
+                type: boolean
+              deleteEmptyFolders:
+                description: Delete empty series and season folders during disk scan
+                nullable: true
+                type: boolean
+              downloadPropersAndRepacks:
+                description: 'Download propers and repacks: DoNotPrefer, PreferAndUpgrade, DoNotUpgrade'
+                enum:
+                - DoNotPrefer
+                - PreferAndUpgrade
+                - DoNotUpgrade
+                - null
+                nullable: true
+                type: string
+              enableMediaInfo:
+                description: Enable media info scanning
+                nullable: true
+                type: boolean
+              episodeTitleRequired:
+                description: 'Episode title required: Always, BulkSeasonReleases, Never'
+                enum:
+                - Always
+                - BulkSeasonReleases
+                - Never
+                - null
+                nullable: true
+                type: string
+              extraFileExtensions:
+                description: Extra file extensions to import (e.g., "srt,sub")
+                nullable: true
+                type: string
+              fileDate:
+                description: 'File date to use: None, LocalAirDate, UtcAirDate'
+                enum:
+                - None
+                - LocalAirDate
+                - UtcAirDate
+                - null
+                nullable: true
+                type: string
+              importExtraFiles:
+                description: Import extra files (subtitles, etc.)
+                nullable: true
+                type: boolean
+              minimumFreeSpaceWhenImporting:
+                description: Minimum free space when importing (MB)
+                format: int32
+                nullable: true
+                type: integer
+              recycleBin:
+                description: Recycle bin path (empty to disable)
+                nullable: true
+                type: string
+              recycleBinCleanupDays:
+                description: Days to keep files in recycle bin before cleaning (0 to disable)
+                format: int32
+                nullable: true
+                type: integer
+              rescanAfterRefresh:
+                description: 'Rescan series folder after refresh: Always, AfterManual, Never'
+                enum:
+                - Always
+                - AfterManual
+                - Never
+                - null
+                nullable: true
+                type: string
+              scriptImportPath:
+                description: Script import path
+                nullable: true
+                type: string
+              setPermissionsLinux:
+                description: Set permissions on Linux/macOS
+                nullable: true
+                type: boolean
+              skipFreeSpaceCheckWhenImporting:
+                description: Skip free space check when importing
+                nullable: true
+                type: boolean
+              sonarrInstanceRef:
+                description: Reference to the Sonarr instance
+                properties:
+                  name:
+                    default: ''
+                    description: Name of the SonarrInstance resource
+                    type: string
+                  namespace:
+                    description: Namespace of the SonarrInstance (optional, defaults to same namespace)
+                    nullable: true
+                    type: string
+                type: object
+              useScriptImport:
+                description: Use script for importing
+                nullable: true
+                type: boolean
+            required:
+            - sonarrInstanceRef
+            type: object
+          status:
+            nullable: true
+            properties:
+              conditions:
+                default: []
+                description: Current conditions
+                items:
+                  description: Condition contains details for one aspect of the current state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating details about the transition. This may be an empty string.
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                default: 0
+                description: Observed generation
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        title: SonarrMediaManagementConfig
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
