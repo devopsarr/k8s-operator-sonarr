@@ -4,5 +4,4 @@
 .vscode
 .cursorrules
 .idea
-Cargo.lock
 Dockerfile

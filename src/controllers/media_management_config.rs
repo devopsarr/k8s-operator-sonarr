@@ -18,9 +18,9 @@ use sonarr::models::{
 
 use crate::Context;
 use crate::crds::media_management_config::{
-    EpisodeTitleRequiredType as CrdEpisodeTitleRequiredType,
-    FileDateType as CrdFileDateType, ProperDownloadType, RescanAfterRefreshType as CrdRescanType,
-    SonarrMediaManagementConfig, SonarrMediaManagementConfigStatus,
+    EpisodeTitleRequiredType as CrdEpisodeTitleRequiredType, FileDateType as CrdFileDateType,
+    ProperDownloadType, RescanAfterRefreshType as CrdRescanType, SonarrMediaManagementConfig,
+    SonarrMediaManagementConfigStatus,
 };
 use crate::error::{Error, Result};
 
@@ -39,10 +39,7 @@ pub async fn run(client: Client, context: Arc<Context>) {
     .await;
 }
 
-async fn reconcile(
-    obj: Arc<SonarrMediaManagementConfig>,
-    ctx: Arc<Context>,
-) -> Result<Action> {
+async fn reconcile(obj: Arc<SonarrMediaManagementConfig>, ctx: Arc<Context>) -> Result<Action> {
     reconcile_with_finalizer(obj, ctx, reconcile_apply, reconcile_cleanup).await
 }
 
@@ -261,10 +258,7 @@ async fn reconcile_apply(
         .copy_using_hardlinks
         .or(existing.copy_using_hardlinks);
 
-    resource.use_script_import = config
-        .spec
-        .use_script_import
-        .or(existing.use_script_import);
+    resource.use_script_import = config.spec.use_script_import.or(existing.use_script_import);
 
     resource.script_import_path = config
         .spec
@@ -285,10 +279,7 @@ async fn reconcile_apply(
         .map(Some)
         .or(existing.extra_file_extensions);
 
-    resource.enable_media_info = config
-        .spec
-        .enable_media_info
-        .or(existing.enable_media_info);
+    resource.enable_media_info = config.spec.enable_media_info.or(existing.enable_media_info);
 
     // Update config
     let id = existing

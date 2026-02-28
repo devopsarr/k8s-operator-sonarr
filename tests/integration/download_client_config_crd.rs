@@ -49,7 +49,9 @@ async fn test_create_sonarr_download_client_config() {
 
     let api: Api<SonarrDownloadClientConfig> = Api::namespaced(client.clone(), TEST_NAMESPACE);
     let patch_params = PatchParams::apply("sonarr-operator-test").force();
-    let result = api.patch(&name, &patch_params, &Patch::Apply(&config)).await;
+    let result = api
+        .patch(&name, &patch_params, &Patch::Apply(&config))
+        .await;
 
     assert!(
         result.is_ok(),
@@ -134,7 +136,10 @@ async fn test_update_sonarr_download_client_config() {
         .get(&name)
         .await
         .expect("Failed to get SonarrDownloadClientConfig");
-    assert_eq!(retrieved.spec.enable_completed_download_handling, Some(true));
+    assert_eq!(
+        retrieved.spec.enable_completed_download_handling,
+        Some(true)
+    );
     assert_eq!(retrieved.spec.auto_redownload_failed, Some(true));
 
     // Cleanup

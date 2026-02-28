@@ -101,12 +101,11 @@ async fn reconcile_cleanup(folder: Arc<SonarrRootFolder>, ctx: Arc<Context>) -> 
         folder.name_any()
     );
 
-    if let Some(id) = folder.status.as_ref().and_then(|s| s.id) {
-        if let Ok(config) =
+    if let Some(id) = folder.status.as_ref().and_then(|s| s.id)
+        && let Ok(config) =
             get_sonarr_config(&ctx, client, &namespace, &folder.spec.sonarr_instance_ref).await
-        {
-            let _ = root_folder_api::delete_root_folder(&config, id).await;
-        }
+    {
+        let _ = root_folder_api::delete_root_folder(&config, id).await;
     }
 
     Ok(Action::await_change())

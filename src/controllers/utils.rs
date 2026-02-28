@@ -1,9 +1,7 @@
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
 
 fn now() -> k8s_openapi::apimachinery::pkg::apis::meta::v1::Time {
-    k8s_openapi::apimachinery::pkg::apis::meta::v1::Time(
-        k8s_openapi::jiff::Timestamp::now()
-    )
+    k8s_openapi::apimachinery::pkg::apis::meta::v1::Time(k8s_openapi::jiff::Timestamp::now())
 }
 
 /// Create a Ready condition with the given status and message
@@ -44,7 +42,10 @@ pub fn synced_condition(status: bool, reason: &str, message: &str) -> Condition 
 
 /// Update conditions list, replacing existing conditions of the same type
 pub fn update_conditions(conditions: &mut Vec<Condition>, new_condition: Condition) {
-    if let Some(existing) = conditions.iter_mut().find(|c| c.type_ == new_condition.type_) {
+    if let Some(existing) = conditions
+        .iter_mut()
+        .find(|c| c.type_ == new_condition.type_)
+    {
         if existing.status != new_condition.status || existing.reason != new_condition.reason {
             *existing = new_condition;
         }

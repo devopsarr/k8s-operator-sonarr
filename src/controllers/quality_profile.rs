@@ -120,12 +120,11 @@ async fn reconcile_cleanup(
         profile.name_any()
     );
 
-    if let Some(id) = profile.status.as_ref().and_then(|s| s.id) {
-        if let Ok(config) =
+    if let Some(id) = profile.status.as_ref().and_then(|s| s.id)
+        && let Ok(config) =
             get_sonarr_config(&ctx, client, &namespace, &profile.spec.sonarr_instance_ref).await
-        {
-            let _ = quality_profile_api::delete_quality_profile(&config, id).await;
-        }
+    {
+        let _ = quality_profile_api::delete_quality_profile(&config, id).await;
     }
 
     Ok(Action::await_change())

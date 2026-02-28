@@ -10,9 +10,9 @@ pub mod error;
 
 pub use error::{Error, Result};
 
-use std::sync::Arc;
-use kube::Client;
 use crate::api::SonarrClientFactory;
+use kube::Client;
+use std::sync::Arc;
 
 /// Shared context for all controllers
 pub struct Context {

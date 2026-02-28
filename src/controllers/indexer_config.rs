@@ -23,13 +23,8 @@ use super::{ready_condition, update_conditions};
 
 /// Start the SonarrIndexerConfig controller
 pub async fn run(client: Client, context: Arc<Context>) {
-    run_controller::<SonarrIndexerConfig, _, _>(
-        client,
-        context,
-        "SonarrIndexerConfig",
-        reconcile,
-    )
-    .await;
+    run_controller::<SonarrIndexerConfig, _, _>(client, context, "SonarrIndexerConfig", reconcile)
+        .await;
 }
 
 async fn reconcile(obj: Arc<SonarrIndexerConfig>, ctx: Arc<Context>) -> Result<Action> {

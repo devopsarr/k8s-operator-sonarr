@@ -104,33 +104,33 @@ async fn reconcile_apply(instance: Arc<Sonarr>, ctx: Arc<Context>) -> Result<Act
     reconcile_service(client, &namespace, &instance, &owner_ref, &labels).await?;
 
     // Reconcile Ingress (if configured)
-    if let Some(ref ingress_config) = instance.spec.ingress {
-        if ingress_config.enabled {
-            reconcile_ingress(
-                client,
-                &namespace,
-                &instance,
-                ingress_config,
-                &owner_ref,
-                &labels,
-            )
-            .await?;
-        }
+    if let Some(ref ingress_config) = instance.spec.ingress
+        && ingress_config.enabled
+    {
+        reconcile_ingress(
+            client,
+            &namespace,
+            &instance,
+            ingress_config,
+            &owner_ref,
+            &labels,
+        )
+        .await?;
     }
 
     // Reconcile HTTPRoute (if configured)
-    if let Some(ref http_route_config) = instance.spec.http_route {
-        if http_route_config.enabled {
-            reconcile_http_route(
-                client,
-                &namespace,
-                &instance,
-                http_route_config,
-                &owner_ref,
-                &labels,
-            )
-            .await?;
-        }
+    if let Some(ref http_route_config) = instance.spec.http_route
+        && http_route_config.enabled
+    {
+        reconcile_http_route(
+            client,
+            &namespace,
+            &instance,
+            http_route_config,
+            &owner_ref,
+            &labels,
+        )
+        .await?;
     }
 
     // Update status

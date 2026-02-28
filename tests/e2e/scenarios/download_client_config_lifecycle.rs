@@ -216,7 +216,9 @@ async fn test_download_client_config_singleton_constraint() {
                 "✓ Singleton constraint enforced - second DownloadClientConfig has error/conflict condition"
             );
         } else {
-            tracing::warn!("Second config doesn't show conflict - singleton may not be enforced at controller level");
+            tracing::warn!(
+                "Second config doesn't show conflict - singleton may not be enforced at controller level"
+            );
         }
     }
 

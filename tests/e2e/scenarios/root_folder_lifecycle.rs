@@ -10,8 +10,12 @@ use std::time::Duration;
 #[tokio::test]
 #[ignore = "requires E2E environment - run with: cargo test --test e2e -- --ignored"]
 async fn test_root_folder_full_lifecycle() {
-    let mut ctx = TestContext::new().await.expect("Failed to create test context");
-    setup_e2e_namespace(&ctx.client).await.expect("Failed to setup namespace");
+    let mut ctx = TestContext::new()
+        .await
+        .expect("Failed to create test context");
+    setup_e2e_namespace(&ctx.client)
+        .await
+        .expect("Failed to setup namespace");
 
     let rf_name = unique_name("e2e-rf");
     // Use a path that might exist in the container
@@ -20,7 +24,11 @@ async fn test_root_folder_full_lifecycle() {
     ctx.register_cleanup("SonarrRootFolder", E2E_NAMESPACE, &rf_name);
 
     // Create the root folder CR
-    tracing::info!("Creating SonarrRootFolder: {} with path: {}", rf_name, rf_path);
+    tracing::info!(
+        "Creating SonarrRootFolder: {} with path: {}",
+        rf_name,
+        rf_path
+    );
     let root_folder = SonarrRootFolder {
         metadata: ObjectMeta {
             name: Some(rf_name.clone()),
@@ -37,18 +45,16 @@ async fn test_root_folder_full_lifecycle() {
         status: None,
     };
 
-    apply_resource(&ctx.client, &root_folder).await.expect("Failed to create root folder CR");
+    apply_resource(&ctx.client, &root_folder)
+        .await
+        .expect("Failed to create root folder CR");
 
     // Wait for Ready condition
     tracing::info!("Waiting for root folder to be ready...");
-    let ready_rf = wait_for_ready::<SonarrRootFolder>(
-        &ctx.client,
-        E2E_NAMESPACE,
-        &rf_name,
-        E2E_TIMEOUT,
-    )
-    .await
-    .expect("Root folder never became ready");
+    let ready_rf =
+        wait_for_ready::<SonarrRootFolder>(&ctx.client, E2E_NAMESPACE, &rf_name, E2E_TIMEOUT)
+            .await
+            .expect("Root folder never became ready");
 
     let rf_id = ready_rf
         .status
@@ -59,7 +65,8 @@ async fn test_root_folder_full_lifecycle() {
 
     // Verify in Sonarr API
     tracing::info!("Verifying root folder exists in Sonarr...");
-    let sonarr_rf = ctx.sonarr
+    let sonarr_rf = ctx
+        .sonarr
         .find_root_folder_by_path(&rf_path)
         .await
         .expect("Failed to query Sonarr API")

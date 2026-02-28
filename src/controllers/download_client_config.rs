@@ -133,8 +133,7 @@ async fn reconcile_apply(
         get_sonarr_config(&ctx, client, &namespace, &config.spec.sonarr_instance_ref).await?;
 
     // Get existing config (there's only one, id=1)
-    let existing =
-        download_client_config_api::get_download_client_config(&sonarr_config).await?;
+    let existing = download_client_config_api::get_download_client_config(&sonarr_config).await?;
 
     // Build update resource
     let mut resource = DownloadClientConfigResource::new();

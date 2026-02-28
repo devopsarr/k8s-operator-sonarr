@@ -226,10 +226,7 @@ async fn reconcile_apply(config: Arc<SonarrNamingConfig>, ctx: Arc<Context>) -> 
     Ok(Action::requeue(REQUEUE_DURATION))
 }
 
-async fn reconcile_cleanup(
-    _config: Arc<SonarrNamingConfig>,
-    _ctx: Arc<Context>,
-) -> Result<Action> {
+async fn reconcile_cleanup(_config: Arc<SonarrNamingConfig>, _ctx: Arc<Context>) -> Result<Action> {
     // Config settings persist in Sonarr, nothing to clean up
     Ok(Action::await_change())
 }

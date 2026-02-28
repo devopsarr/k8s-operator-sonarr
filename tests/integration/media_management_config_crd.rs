@@ -51,7 +51,9 @@ async fn test_create_sonarr_media_management_config() {
 
     let api: Api<SonarrMediaManagementConfig> = Api::namespaced(client.clone(), TEST_NAMESPACE);
     let patch_params = PatchParams::apply("sonarr-operator-test").force();
-    let result = api.patch(&name, &patch_params, &Patch::Apply(&config)).await;
+    let result = api
+        .patch(&name, &patch_params, &Patch::Apply(&config))
+        .await;
 
     assert!(
         result.is_ok(),
@@ -250,7 +252,9 @@ async fn test_singleton_constraint() {
 
     // This should succeed at the K8s level (resource is created)
     // but the controller should mark it as conflict
-    let result = api.patch(&name2, &patch_params, &Patch::Apply(&config2)).await;
+    let result = api
+        .patch(&name2, &patch_params, &Patch::Apply(&config2))
+        .await;
     assert!(
         result.is_ok(),
         "Failed to create second SonarrMediaManagementConfig: {:?}",

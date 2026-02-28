@@ -49,7 +49,7 @@ async fn reconcile_apply(auto_tag: Arc<SonarrAutoTag>, ctx: Arc<Context>) -> Res
         .spec
         .specifications
         .iter()
-        .map(|spec| convert_specification(spec))
+        .map(convert_specification)
         .collect();
     resource.specifications = Some(Some(specs));
 
@@ -142,12 +142,11 @@ async fn reconcile_cleanup(auto_tag: Arc<SonarrAutoTag>, ctx: Arc<Context>) -> R
         auto_tag.name_any()
     );
 
-    if let Some(id) = auto_tag.status.as_ref().and_then(|s| s.id) {
-        if let Ok(config) =
+    if let Some(id) = auto_tag.status.as_ref().and_then(|s| s.id)
+        && let Ok(config) =
             get_sonarr_config(&ctx, client, &namespace, &auto_tag.spec.sonarr_instance_ref).await
-        {
-            let _ = auto_tagging_api::delete_auto_tagging(&config, id).await;
-        }
+    {
+        let _ = auto_tagging_api::delete_auto_tagging(&config, id).await;
     }
 
     Ok(Action::await_change())

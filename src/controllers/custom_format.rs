@@ -49,7 +49,7 @@ async fn reconcile_apply(cf: Arc<SonarrCustomFormat>, ctx: Arc<Context>) -> Resu
         .spec
         .specifications
         .iter()
-        .map(|spec| convert_specification(spec))
+        .map(convert_specification)
         .collect();
     resource.specifications = Some(Some(specs));
 
@@ -143,12 +143,11 @@ async fn reconcile_cleanup(cf: Arc<SonarrCustomFormat>, ctx: Arc<Context>) -> Re
         cf.name_any()
     );
 
-    if let Some(id) = cf.status.as_ref().and_then(|s| s.id) {
-        if let Ok(config) =
+    if let Some(id) = cf.status.as_ref().and_then(|s| s.id)
+        && let Ok(config) =
             get_sonarr_config(&ctx, client, &namespace, &cf.spec.sonarr_instance_ref).await
-        {
-            let _ = custom_format_api::delete_custom_format(&config, id).await;
-        }
+    {
+        let _ = custom_format_api::delete_custom_format(&config, id).await;
     }
 
     Ok(Action::await_change())

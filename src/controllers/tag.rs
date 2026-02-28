@@ -103,12 +103,11 @@ async fn reconcile_cleanup(tag: Arc<SonarrTag>, ctx: Arc<Context>) -> Result<Act
 
     info!("Cleaning up SonarrTag: {}/{}", namespace, tag.name_any());
 
-    if let Some(id) = tag.status.as_ref().and_then(|s| s.id) {
-        if let Ok(config) =
+    if let Some(id) = tag.status.as_ref().and_then(|s| s.id)
+        && let Ok(config) =
             get_sonarr_config(&ctx, client, &namespace, &tag.spec.sonarr_instance_ref).await
-        {
-            let _ = tag_api::delete_tag(&config, id).await;
-        }
+    {
+        let _ = tag_api::delete_tag(&config, id).await;
     }
 
     Ok(Action::await_change())

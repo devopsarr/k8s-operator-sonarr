@@ -52,7 +52,9 @@ async fn test_create_sonarr_naming_config() {
 
     let api: Api<SonarrNamingConfig> = Api::namespaced(client.clone(), TEST_NAMESPACE);
     let patch_params = PatchParams::apply("sonarr-operator-test").force();
-    let result = api.patch(&name, &patch_params, &Patch::Apply(&config)).await;
+    let result = api
+        .patch(&name, &patch_params, &Patch::Apply(&config))
+        .await;
 
     assert!(
         result.is_ok(),

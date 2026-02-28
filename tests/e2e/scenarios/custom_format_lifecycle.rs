@@ -10,8 +10,12 @@ use std::time::Duration;
 #[tokio::test]
 #[ignore = "requires E2E environment - run with: cargo test --test e2e -- --ignored"]
 async fn test_custom_format_full_lifecycle() {
-    let mut ctx = TestContext::new().await.expect("Failed to create test context");
-    setup_e2e_namespace(&ctx.client).await.expect("Failed to setup namespace");
+    let mut ctx = TestContext::new()
+        .await
+        .expect("Failed to create test context");
+    setup_e2e_namespace(&ctx.client)
+        .await
+        .expect("Failed to setup namespace");
 
     let cf_name = unique_name("e2e-cf");
     let format_name = format!("E2E Custom Format {}", cf_name);
@@ -38,18 +42,16 @@ async fn test_custom_format_full_lifecycle() {
         status: None,
     };
 
-    apply_resource(&ctx.client, &custom_format).await.expect("Failed to create custom format CR");
+    apply_resource(&ctx.client, &custom_format)
+        .await
+        .expect("Failed to create custom format CR");
 
     // Wait for Ready condition
     tracing::info!("Waiting for custom format to be ready...");
-    let ready_cf = wait_for_ready::<SonarrCustomFormat>(
-        &ctx.client,
-        E2E_NAMESPACE,
-        &cf_name,
-        E2E_TIMEOUT,
-    )
-    .await
-    .expect("Custom format never became ready");
+    let ready_cf =
+        wait_for_ready::<SonarrCustomFormat>(&ctx.client, E2E_NAMESPACE, &cf_name, E2E_TIMEOUT)
+            .await
+            .expect("Custom format never became ready");
 
     let cf_id = ready_cf
         .status
@@ -60,7 +62,8 @@ async fn test_custom_format_full_lifecycle() {
 
     // Verify in Sonarr API
     tracing::info!("Verifying custom format exists in Sonarr...");
-    let sonarr_cf = ctx.sonarr
+    let sonarr_cf = ctx
+        .sonarr
         .find_custom_format_by_name(&format_name)
         .await
         .expect("Failed to query Sonarr API")

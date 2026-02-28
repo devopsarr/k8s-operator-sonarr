@@ -3,8 +3,8 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::SonarrInstanceRef;
 use super::SecretKeySelector;
+use super::SonarrInstanceRef;
 
 /// SonarrNotification represents a notification/connect configuration in Sonarr
 /// Notifications are used to alert on events (Discord, Telegram, Webhook, etc.)

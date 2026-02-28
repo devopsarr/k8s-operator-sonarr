@@ -13,20 +13,20 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures::StreamExt;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
 use k8s_openapi::NamespaceResourceScope;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
 use kube::api::{Api, Patch, PatchParams};
 use kube::runtime::controller::{Action, Controller};
-use kube::runtime::finalizer::{finalizer, Event};
+use kube::runtime::finalizer::{Event, finalizer};
 use kube::runtime::watcher;
 use kube::{Client, Resource, ResourceExt};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use serde_json::json;
 use tracing::{debug, error, info};
 
-use crate::crds::{SonarrInstanceRef, FINALIZER};
-use crate::error::{Error, Result};
 use crate::Context;
+use crate::crds::{FINALIZER, SonarrInstanceRef};
+use crate::error::{Error, Result};
 
 use super::{ready_condition, update_conditions};
 
@@ -39,12 +39,19 @@ pub trait HasSonarrInstanceRef {
 }
 
 /// Generic error policy for all controllers
-pub fn error_policy<R>(resource_name: &'static str) -> impl Fn(Arc<R>, &Error, Arc<Context>) -> Action
+pub fn error_policy<R>(
+    resource_name: &'static str,
+) -> impl Fn(Arc<R>, &Error, Arc<Context>) -> Action
 where
     R: Resource + ResourceExt,
 {
     move |obj: Arc<R>, err: &Error, _ctx: Arc<Context>| {
-        error!("Error reconciling {} {}: {:?}", resource_name, obj.name_any(), err);
+        error!(
+            "Error reconciling {} {}: {:?}",
+            resource_name,
+            obj.name_any(),
+            err
+        );
         Action::requeue(Duration::from_secs(60))
     }
 }
@@ -96,13 +103,7 @@ pub async fn run_controller<R, ReconcileFn, ReconcileFut>(
     resource_name: &'static str,
     reconcile_fn: ReconcileFn,
 ) where
-    R: Resource<DynamicType = ()>
-        + Clone
-        + Debug
-        + DeserializeOwned
-        + Send
-        + Sync
-        + 'static,
+    R: Resource<DynamicType = ()> + Clone + Debug + DeserializeOwned + Send + Sync + 'static,
     R::DynamicType: Default + Eq + Hash + Clone,
     ReconcileFn: FnMut(Arc<R>, Arc<Context>) -> ReconcileFut + Send + Sync + 'static + Clone,
     ReconcileFut: Future<Output = Result<Action>> + Send + 'static,
@@ -135,7 +136,11 @@ pub async fn update_status_success<R>(
     existing_conditions: Vec<Condition>,
 ) -> Result<()>
 where
-    R: Resource<Scope = k8s_openapi::NamespaceResourceScope> + Clone + Debug + DeserializeOwned + Serialize,
+    R: Resource<Scope = k8s_openapi::NamespaceResourceScope>
+        + Clone
+        + Debug
+        + DeserializeOwned
+        + Serialize,
     R: Resource<DynamicType = ()>,
 {
     let api: Api<R> = Api::namespaced(client.clone(), namespace);
@@ -153,11 +158,21 @@ where
         }
     });
 
-    api.patch_status(name, &PatchParams::apply("sonarr-operator"), &Patch::Merge(&status))
-        .await
-        .map_err(|e| Error::KubeError(e))?;
+    api.patch_status(
+        name,
+        &PatchParams::apply("sonarr-operator"),
+        &Patch::Merge(&status),
+    )
+    .await
+    .map_err(Error::KubeError)?;
 
-    info!("Updated {} {}/{} status with id={}", std::any::type_name::<R>(), namespace, name, sonarr_id);
+    info!(
+        "Updated {} {}/{} status with id={}",
+        std::any::type_name::<R>(),
+        namespace,
+        name,
+        sonarr_id
+    );
     Ok(())
 }
 
@@ -170,7 +185,11 @@ pub async fn update_status_failure<R>(
     existing_conditions: Vec<Condition>,
 ) -> Result<()>
 where
-    R: Resource<Scope = k8s_openapi::NamespaceResourceScope> + Clone + Debug + DeserializeOwned + Serialize,
+    R: Resource<Scope = k8s_openapi::NamespaceResourceScope>
+        + Clone
+        + Debug
+        + DeserializeOwned
+        + Serialize,
     R: Resource<DynamicType = ()>,
 {
     let api: Api<R> = Api::namespaced(client.clone(), namespace);
@@ -186,9 +205,13 @@ where
         }
     });
 
-    api.patch_status(name, &PatchParams::apply("sonarr-operator"), &Patch::Merge(&status))
-        .await
-        .map_err(|e| Error::KubeError(e))?;
+    api.patch_status(
+        name,
+        &PatchParams::apply("sonarr-operator"),
+        &Patch::Merge(&status),
+    )
+    .await
+    .map_err(Error::KubeError)?;
 
     Ok(())
 }
