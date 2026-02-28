@@ -20,7 +20,7 @@ spec:
       containers:
         - name: operator
           image: ghcr.io/OWNER/sonarr-operator:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: RUST_LOG
               value: 'info,sonarr_operator=debug'
