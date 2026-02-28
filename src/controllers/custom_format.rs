@@ -6,7 +6,7 @@ use kube::{Client, ResourceExt};
 use tracing::info;
 
 use sonarr::apis::custom_format_api;
-use sonarr::models::{CustomFormatResource, CustomFormatSpecificationSchema};
+use sonarr::models::{CustomFormatResource, CustomFormatSpecificationSchema, Field};
 
 use crate::Context;
 use crate::crds::custom_format::{CustomFormatImplementation, CustomFormatSpecification};
@@ -113,7 +113,31 @@ fn convert_specification(spec: &CustomFormatSpecification) -> CustomFormatSpecif
     ));
     schema.negate = Some(spec.negate);
     schema.required = Some(spec.required);
-    // Fields would need more complex mapping
+
+    // Map fields to Sonarr API Field objects
+    let mut fields = Vec::new();
+    if let Some(ref value) = spec.fields.value {
+        let mut field = Field::new();
+        field.name = Some(Some("value".to_string()));
+        field.value = Some(Some(serde_json::Value::String(value.clone())));
+        fields.push(field);
+    }
+    if let Some(min) = spec.fields.min {
+        let mut field = Field::new();
+        field.name = Some(Some("min".to_string()));
+        field.value = Some(Some(serde_json::json!(min)));
+        fields.push(field);
+    }
+    if let Some(max) = spec.fields.max {
+        let mut field = Field::new();
+        field.name = Some(Some("max".to_string()));
+        field.value = Some(Some(serde_json::json!(max)));
+        fields.push(field);
+    }
+    if !fields.is_empty() {
+        schema.fields = Some(Some(fields));
+    }
+
     schema
 }
 

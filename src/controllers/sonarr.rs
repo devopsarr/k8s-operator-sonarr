@@ -133,10 +133,12 @@ async fn reconcile_apply(instance: Arc<Sonarr>, ctx: Arc<Context>) -> Result<Act
         .await?;
     }
 
-    // Update status
-    update_status(client, &namespace, &instance).await?;
+    // Update status and determine requeue interval
+    let is_ready = update_status(client, &namespace, &instance).await?;
 
-    Ok(Action::requeue(Duration::from_secs(300)))
+    // Requeue quickly while the deployment is starting, longer once stable
+    let requeue_secs = if is_ready { 300 } else { 15 };
+    Ok(Action::requeue(Duration::from_secs(requeue_secs)))
 }
 
 /// Reconcile on cleanup (delete)
@@ -1039,7 +1041,7 @@ async fn reconcile_http_route(
     Ok(())
 }
 
-async fn update_status(client: &Client, namespace: &str, instance: &Sonarr) -> Result<()> {
+async fn update_status(client: &Client, namespace: &str, instance: &Sonarr) -> Result<bool> {
     let instances: Api<Sonarr> = Api::namespaced(client.clone(), namespace);
     let name = instance.name_any();
 
@@ -1125,5 +1127,5 @@ async fn update_status(client: &Client, namespace: &str, instance: &Sonarr) -> R
         .await
         .map_err(Error::KubeError)?;
 
-    Ok(())
+    Ok(ready)
 }

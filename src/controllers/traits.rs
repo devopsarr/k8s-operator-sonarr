@@ -22,7 +22,7 @@ use kube::runtime::watcher;
 use kube::{Client, Resource, ResourceExt};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::json;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::Context;
 use crate::crds::{FINALIZER, SonarrInstanceRef};
@@ -58,7 +58,8 @@ where
 
 /// Wrapper that handles the common finalizer pattern for sub-resources
 /// This eliminates boilerplate from individual controllers by wrapping
-/// the kube-rs finalizer function with our standard error handling
+/// the kube-rs finalizer function with our standard error handling.
+/// On apply errors, it writes a failure status condition before propagating.
 pub async fn reconcile_with_finalizer<R, ApplyFn, ApplyFut, CleanupFn, CleanupFut>(
     obj: Arc<R>,
     ctx: Arc<Context>,
@@ -85,15 +86,51 @@ where
         .ok_or(Error::MissingObjectKey(".metadata.namespace"))?;
 
     let api: Api<R> = Api::namespaced(client.clone(), &namespace);
+    let failure_client = client.clone();
+    let failure_namespace = namespace.clone();
 
     finalizer(&api, FINALIZER, obj.clone(), |event| async {
         match event {
-            Event::Apply(resource) => apply_fn(resource, ctx.clone()).await,
+            Event::Apply(resource) => {
+                let resource_name = resource.name_any();
+                match apply_fn(resource.clone(), ctx.clone()).await {
+                    Ok(action) => Ok(action),
+                    Err(e) => {
+                        // Write failure status so tests/users can see the error
+                        let existing_conditions = extract_conditions(&*resource);
+                        if let Err(status_err) = update_status_failure::<R>(
+                            &failure_client,
+                            &failure_namespace,
+                            &resource_name,
+                            &format!("{}", e),
+                            existing_conditions,
+                        )
+                        .await
+                        {
+                            warn!(
+                                "Failed to write error status for {}: {:?}",
+                                resource_name, status_err
+                            );
+                        }
+                        Err(e)
+                    }
+                }
+            }
             Event::Cleanup(resource) => cleanup_fn(resource, ctx.clone()).await,
         }
     })
     .await
     .map_err(|e| Error::FinalizerError(Box::new(e)))
+}
+
+/// Extract existing conditions from a resource via serde.
+/// This allows generic extraction without requiring a trait on each CRD type.
+fn extract_conditions<R: Serialize>(obj: &R) -> Vec<Condition> {
+    serde_json::to_value(obj)
+        .ok()
+        .and_then(|v| v.get("status")?.get("conditions")?.clone().into())
+        .and_then(|c| serde_json::from_value::<Vec<Condition>>(c).ok())
+        .unwrap_or_default()
 }
 
 /// Start a generic controller for a Sonarr sub-resource

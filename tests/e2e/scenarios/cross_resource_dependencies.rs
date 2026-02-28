@@ -9,6 +9,10 @@
 use crate::common::*;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use kube::api::{Api, DeleteParams};
+use sonarr_operator::crds::auto_tag::{AutoTagFields, AutoTagImplementation, AutoTagSpecification};
+use sonarr_operator::crds::custom_format::{
+    CustomFormatFields, CustomFormatImplementation, CustomFormatSpecification,
+};
 use sonarr_operator::crds::delay_profile::DownloadProtocol;
 use sonarr_operator::crds::{
     SonarrAutoTag, SonarrAutoTagSpec, SonarrCustomFormat, SonarrCustomFormatSpec,
@@ -94,7 +98,17 @@ async fn test_autotag_with_tag_dependency() {
             name: format!("E2E AutoTag {}", autotag_name),
             remove_tags_automatically: false,
             tags: vec![tag_id], // Reference the tag we created
-            specifications: vec![],
+            specifications: vec![AutoTagSpecification {
+                name: "Root Folder".to_string(),
+                implementation: AutoTagImplementation::RootFolderSpecification,
+                negate: false,
+                required: true,
+                fields: AutoTagFields {
+                    value: Some("/config".to_string()),
+                    min: None,
+                    max: None,
+                },
+            }],
             sonarr_instance_ref: SonarrInstanceRef {
                 name: "sonarr".to_string(),
                 namespace: Some("default".to_string()),
@@ -304,7 +318,17 @@ async fn test_invalid_tag_reference_handling() {
             name: format!("E2E Invalid Ref {}", autotag_name),
             remove_tags_automatically: false,
             tags: vec![99999], // Non-existent tag ID
-            specifications: vec![],
+            specifications: vec![AutoTagSpecification {
+                name: "Root Folder".to_string(),
+                implementation: AutoTagImplementation::RootFolderSpecification,
+                negate: false,
+                required: true,
+                fields: AutoTagFields {
+                    value: Some("/config".to_string()),
+                    min: None,
+                    max: None,
+                },
+            }],
             sonarr_instance_ref: SonarrInstanceRef {
                 name: "sonarr".to_string(),
                 namespace: Some("default".to_string()),
@@ -410,7 +434,17 @@ async fn test_full_dependency_chain() {
         spec: SonarrCustomFormatSpec {
             name: cf_name.clone(),
             include_custom_format_when_renaming: false,
-            specifications: vec![],
+            specifications: vec![CustomFormatSpecification {
+                name: "Test Regex".to_string(),
+                implementation: CustomFormatImplementation::ReleaseTitleSpecification,
+                negate: false,
+                required: true,
+                fields: CustomFormatFields {
+                    value: Some("e2e-chain-test".to_string()),
+                    min: None,
+                    max: None,
+                },
+            }],
             sonarr_instance_ref: SonarrInstanceRef {
                 name: "sonarr".to_string(),
                 namespace: Some("default".to_string()),

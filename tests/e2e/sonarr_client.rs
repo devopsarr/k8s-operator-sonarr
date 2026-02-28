@@ -263,7 +263,7 @@ impl SonarrTestClient {
     pub async fn get_auto_tags(&self) -> Result<Vec<AutoTag>> {
         let resp = self
             .client
-            .get(format!("{}/api/v3/autotag", self.base_url))
+            .get(format!("{}/api/v3/autotagging", self.base_url))
             .send()
             .await?
             .error_for_status()?;
@@ -279,7 +279,7 @@ impl SonarrTestClient {
     /// Delete an auto tag by ID
     pub async fn delete_auto_tag(&self, id: i32) -> Result<()> {
         self.client
-            .delete(format!("{}/api/v3/autotag/{}", self.base_url, id))
+            .delete(format!("{}/api/v3/autotagging/{}", self.base_url, id))
             .send()
             .await?
             .error_for_status()?;

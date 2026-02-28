@@ -3,6 +3,9 @@
 use crate::common::*;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use kube::api::{Api, DeleteParams};
+use sonarr_operator::crds::custom_format::{
+    CustomFormatFields, CustomFormatImplementation, CustomFormatSpecification,
+};
 use sonarr_operator::crds::{SonarrCustomFormat, SonarrCustomFormatSpec, SonarrInstanceRef};
 use std::time::Duration;
 
@@ -33,7 +36,17 @@ async fn test_custom_format_full_lifecycle() {
         spec: SonarrCustomFormatSpec {
             name: format_name.clone(),
             include_custom_format_when_renaming: false,
-            specifications: vec![], // Basic format without specifications
+            specifications: vec![CustomFormatSpecification {
+                name: "Test Regex".to_string(),
+                implementation: CustomFormatImplementation::ReleaseTitleSpecification,
+                negate: false,
+                required: true,
+                fields: CustomFormatFields {
+                    value: Some("e2e-test-pattern".to_string()),
+                    min: None,
+                    max: None,
+                },
+            }],
             sonarr_instance_ref: SonarrInstanceRef {
                 name: "sonarr".to_string(),
                 namespace: Some("default".to_string()),

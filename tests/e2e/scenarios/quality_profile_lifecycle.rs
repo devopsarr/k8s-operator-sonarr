@@ -51,7 +51,7 @@ async fn test_quality_profile_full_lifecycle() {
             },
             cutoff_format_score: None,
             min_format_score: None,
-            min_upgrade_format_score: None,
+            min_upgrade_format_score: Some(1),
             format_items: vec![],
         },
         status: None,

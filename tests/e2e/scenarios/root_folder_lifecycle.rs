@@ -18,8 +18,8 @@ async fn test_root_folder_full_lifecycle() {
         .expect("Failed to setup namespace");
 
     let rf_name = unique_name("e2e-rf");
-    // Use a path that might exist in the container
-    let rf_path = format!("/data/e2e-test-{}", rf_name);
+    // Use /tmp which exists in the Sonarr container (Sonarr validates the path exists)
+    let rf_path = "/tmp".to_string();
 
     ctx.register_cleanup("SonarrRootFolder", E2E_NAMESPACE, &rf_name);
 
