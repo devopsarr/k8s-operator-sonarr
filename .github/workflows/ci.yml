@@ -239,7 +239,6 @@ jobs:
         run: |
           k3d cluster create sonarr-e2e \
             --port 8989:30989@server:0 \
-            --no-lb \
             --k3s-arg '--disable=traefik,servicelb,metrics-server@server:*'
 
       - name: Import operator image into k3d
