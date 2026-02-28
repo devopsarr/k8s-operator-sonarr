@@ -2,7 +2,7 @@
 
 A Kubernetes operator for [Sonarr](https://sonarr.tv/) written in Rust using [kube-rs](https://kube.rs/).
 
-This operator allows you to manage Sonarr resources (tags, root folders, quality profiles, indexers, download clients, notifications, and series) declaratively through Kubernetes Custom Resources.
+This operator allows you to manage Sonarr resources declaratively through Kubernetes Custom Resources, enabling GitOps workflows for TV series management.
 
 ## Features
 
@@ -11,19 +11,48 @@ This operator allows you to manage Sonarr resources (tags, root folders, quality
 - **Multi-Instance Support**: Manage multiple Sonarr instances from a single operator
 - **Automatic Synchronization**: Resources are continuously reconciled with Sonarr
 - **Finalizers**: Clean up resources in Sonarr when Kubernetes resources are deleted
+- **19 CRDs**: Comprehensive coverage of Sonarr configuration options
 
 ## Supported Resources
 
-| CRD | Description |
-|-----|-------------|
-| `Sonarr` | Connection to a Sonarr instance |
-| `SonarrTag` | Manage tags for organizing series |
-| `SonarrRootFolder` | Configure root folders for media storage |
-| `SonarrQualityProfile` | Define quality profiles |
-| `SonarrIndexer` | Configure indexers for searching |
-| `SonarrDownloadClient` | Set up download clients (SABnzbd, qBittorrent, etc.) |
-| `SonarrNotification` | Configure notifications (Discord, Telegram, etc.) |
-| `SonarrSeries` | Add and manage TV series |
+The operator manages **19 CRDs** in the `devopsarr.io/v1alpha1` API group:
+
+### Main Instance
+- **[Sonarr](docs/api/crd-reference.md#sonarr)** - The Sonarr server instance configuration
+
+### Content
+- **[SonarrSeries](docs/api/crd-reference.md#sonarrseries)** - TV series management
+
+### Profiles
+- **[SonarrQualityProfile](docs/api/crd-reference.md#sonarrqualityprofile)** - Quality profiles for downloads
+- **[SonarrLanguageProfile](docs/api/crd-reference.md#sonarrlanguageprofile)** - Language preferences
+- **[SonarrDelayProfile](docs/api/crd-reference.md#sonarrdelayprofile)** - Delay settings for releases
+
+### Integrations
+- **[SonarrDownloadClient](docs/api/crd-reference.md#sonarrdownloadclient)** - Download clients (qBittorrent, SABnzbd, etc.)
+- **[SonarrIndexer](docs/api/crd-reference.md#sonarrindexer)** - Indexers for searching torrents/usenet
+- **[SonarrNotification](docs/api/crd-reference.md#sonarrnotification)** - Notifications (Discord, Telegram, etc.)
+- **[SonarrImportList](docs/api/crd-reference.md#sonarrimportlist)** - Import lists for automatic series discovery
+
+### Organization
+- **[SonarrTag](docs/api/crd-reference.md#sonarrtag)** - Tags for organizing series
+- **[SonarrAutoTag](docs/api/crd-reference.md#sonarrautotag)** - Automatic tagging rules
+- **[SonarrRootFolder](docs/api/crd-reference.md#sonarrrootfolder)** - Root folders for media storage
+
+### Quality
+- **[SonarrQualityDefinition](docs/api/crd-reference.md#sonarrqualitydefinition)** - Quality definitions
+- **[SonarrCustomFormat](docs/api/crd-reference.md#sonarrcustomformat)** - Custom format specifications
+
+### Metadata
+- **[SonarrMetadata](docs/api/crd-reference.md#sonarrmetadata)** - Metadata providers
+
+### Config (Singletons per instance)
+- **[SonarrMediaManagementConfig](docs/api/crd-reference.md#sonarrmediamanagementconfig)** - File management settings
+- **[SonarrNamingConfig](docs/api/crd-reference.md#sonarrnamingconfig)** - Episode/series naming patterns
+- **[SonarrIndexerConfig](docs/api/crd-reference.md#sonarrindexerconfig)** - Global indexer settings
+- **[SonarrDownloadClientConfig](docs/api/crd-reference.md#sonarrdownloadclientconfig)** - Global download client settings
+
+For detailed API specifications, see the [CRD Reference](docs/api/crd-reference.md).
 
 ## Quick Start
 
@@ -232,24 +261,63 @@ See [docs/TESTING.md](docs/TESTING.md) for comprehensive testing instructions, i
 
 ## Architecture
 
+The operator implements the [Kubernetes Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/) to declaratively manage Sonarr configuration. It runs as a Deployment in the cluster and watches 19 CRDs in the `devopsarr.io/v1alpha1` API group.
+
+### How It Works
+
 ```
+                        Kubernetes Cluster
 ┌─────────────────────────────────────────────────────────────┐
-│                    Kubernetes Cluster                        │
-│  ┌─────────────────┐     ┌─────────────────┐               │
-│  │  Sonarr CRDs    │     │  Sonarr         │               │
-│  │  - Sonarr       │────▶│  Operator       │               │
-│  │  - SonarrTag    │     │                 │               │
-│  │  - SonarrSeries │     └────────┬────────┘               │
-│  │  - ...          │              │                         │
-│  └─────────────────┘              │ API Calls               │
-└───────────────────────────────────┼─────────────────────────┘
-                                    │
-                                    ▼
-                          ┌─────────────────┐
-                          │  Sonarr Server  │
-                          │  (External)     │
-                          └─────────────────┘
+│                                                             │
+│  ┌──────────────┐  watches   ┌───────────────────────────┐  │
+│  │ Sonarr       │◄───────────│ Sonarr Operator           │  │
+│  │ CRDs (19)    │            │ (Rust / kube-rs)          │  │
+│  │              │            │                           │  │
+│  │ devopsarr.io │ status     │ ┌───────────────────────┐ │  │
+│  │ /v1alpha1    │◄───────────│ │ 19 Controllers        │ │  │
+│  └──────────────┘  updates   │ │ (one per CRD type)    │ │  │
+│                              │ └───────────┬───────────┘ │  │
+│  ┌──────────────┐            └─────────────┼─────────────┘  │
+│  │ K8s Secrets  │                          │                │
+│  │ (API keys)   │──────────────────────────┤                │
+│  └──────────────┘   credentials            │                │
+│                                            │ HTTP REST API  │
+│                                            │ (v3/v4)        │
+│                                            ▼                │
+│                              ┌───────────────────────────┐  │
+│                              │ Sonarr Instance(s)        │  │
+│                              │ (Pods / Services)         │  │
+│                              └───────────────────────────┘  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+### Resource Hierarchy
+
+All sub-resource CRDs reference a parent **Sonarr** instance via `sonarrInstanceRef`:
+
+```
+Sonarr (instance connection: URL + API key)
+├── Content:      SonarrSeries
+├── Profiles:     SonarrQualityProfile, SonarrLanguageProfile, SonarrDelayProfile
+├── Integrations: SonarrDownloadClient, SonarrIndexer, SonarrNotification, SonarrImportList
+├── Organization: SonarrTag, SonarrAutoTag, SonarrRootFolder
+├── Quality:      SonarrQualityDefinition, SonarrCustomFormat
+├── Metadata:     SonarrMetadata
+└── Config:       SonarrMediaManagementConfig, SonarrNamingConfig,
+                  SonarrIndexerConfig, SonarrDownloadClientConfig
+```
+
+### Reconciliation Loop
+
+Each controller runs an independent reconciliation loop:
+
+1. **Watch** — Detect create/update/delete events on the CRD
+2. **Resolve** — Look up the `SonarrInstanceRef` to get URL and API key from the Sonarr CR and its Secret
+3. **Apply** — Call the Sonarr REST API to create or update the resource
+4. **Status** — Write the Sonarr resource ID and a `Ready` condition back to the CRD status
+5. **Finalize** — On deletion, remove the resource from Sonarr before allowing the CR to be garbage-collected
+6. **Requeue** — Re-reconcile every 5 minutes to catch out-of-band changes (errors requeue after 60 seconds)
 
 ## Configuration
 

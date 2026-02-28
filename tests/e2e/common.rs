@@ -414,6 +414,38 @@ impl TestContext {
                     )
                     .await
                 }
+                "SonarrImportList" => {
+                    delete_resource::<SonarrImportList>(
+                        &self.client,
+                        &resource.namespace,
+                        &resource.name,
+                    )
+                    .await
+                }
+                "SonarrSeries" => {
+                    delete_resource::<SonarrSeries>(
+                        &self.client,
+                        &resource.namespace,
+                        &resource.name,
+                    )
+                    .await
+                }
+                "SonarrMetadata" => {
+                    delete_resource::<SonarrMetadata>(
+                        &self.client,
+                        &resource.namespace,
+                        &resource.name,
+                    )
+                    .await
+                }
+                "SonarrLanguageProfile" => {
+                    delete_resource::<SonarrLanguageProfile>(
+                        &self.client,
+                        &resource.namespace,
+                        &resource.name,
+                    )
+                    .await
+                }
                 _ => {
                     tracing::warn!("Unknown resource kind for cleanup: {}", resource.kind);
                     Ok(())
@@ -487,3 +519,7 @@ impl_has_conditions!(SonarrNamingConfig);
 impl_has_conditions!(SonarrIndexerConfig);
 impl_has_conditions!(SonarrDownloadClientConfig);
 impl_has_conditions!(SonarrQualityDefinition);
+impl_has_conditions!(SonarrImportList);
+impl_has_conditions!(SonarrSeries);
+impl_has_conditions!(SonarrMetadata);
+impl_has_conditions!(SonarrLanguageProfile);

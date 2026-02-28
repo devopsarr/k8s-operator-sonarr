@@ -3,8 +3,8 @@
 //! This client directly queries the Sonarr API to verify that resources
 //! created by the operator actually exist in Sonarr.
 
-use anyhow::{anyhow, Result};
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use anyhow::{Result, anyhow};
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -334,6 +334,32 @@ impl SonarrTestClient {
             .error_for_status()?;
         Ok(())
     }
+
+    // ========== Indexer Config ==========
+
+    /// Get global indexer config from Sonarr
+    pub async fn get_indexer_config(&self) -> Result<IndexerConfig> {
+        let resp = self
+            .client
+            .get(format!("{}/api/v3/config/indexer", self.base_url))
+            .send()
+            .await?
+            .error_for_status()?;
+        Ok(resp.json().await?)
+    }
+
+    // ========== Download Client Config ==========
+
+    /// Get global download client config from Sonarr
+    pub async fn get_download_client_config(&self) -> Result<DownloadClientConfig> {
+        let resp = self
+            .client
+            .get(format!("{}/api/v3/config/downloadclient", self.base_url))
+            .send()
+            .await?
+            .error_for_status()?;
+        Ok(resp.json().await?)
+    }
 }
 
 // ========== API Response Types ==========
@@ -477,4 +503,32 @@ pub struct DelayProfile {
     pub order: i32,
     #[serde(default)]
     pub tags: Vec<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexerConfig {
+    pub id: i32,
+    #[serde(default)]
+    pub minimum_age: i32,
+    #[serde(default)]
+    pub retention: i32,
+    #[serde(default)]
+    pub maximum_size: i32,
+    #[serde(default)]
+    pub rss_sync_interval: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadClientConfig {
+    pub id: i32,
+    #[serde(default)]
+    pub download_client_working_folders: String,
+    #[serde(default)]
+    pub enable_completed_download_handling: bool,
+    #[serde(default)]
+    pub auto_redownload_failed: bool,
+    #[serde(default)]
+    pub auto_redownload_failed_from_interactive_search: bool,
 }

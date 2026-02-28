@@ -185,36 +185,37 @@ kind-load: docker ## Load Docker image into Kind cluster
 	kind load docker-image $(IMAGE_NAME):$(IMAGE_TAG) --name sonarr-operator-test
 
 ##@ End-to-End Testing
+#
+# The E2E flow is:
+#   1. Create a k3d/Kind cluster and install CRDs
+#   2. Run the operator (locally or in-cluster)
+#   3. Create an API key Secret + apply the Sonarr CR
+#   4. The operator creates the Sonarr Deployment, Service, PVC
+#   5. Run E2E tests against the live Sonarr instance
+#
+# Required env vars: SONARR_API_KEY, SONARR_URL
 
-.PHONY: e2e-setup
-e2e-setup: kind-create install ## Setup E2E test environment with Sonarr
-	@echo "Setting up E2E test environment..."
-	chmod +x tests/e2e/fixtures/setup.sh
-	./tests/e2e/fixtures/setup.sh
-	@echo "E2E environment ready"
+E2E_API_KEY ?= test-e2e-api-key-12345
 
-.PHONY: e2e-sonarr
-e2e-sonarr: ## Deploy only Sonarr for E2E tests (use after kind-create install)
-	@echo "Deploying Sonarr..."
-	kubectl apply -f tests/e2e/fixtures/sonarr-deployment.yaml
-	kubectl wait --for=condition=available deployment/sonarr -n default --timeout=300s
-	kubectl wait --for=condition=ready pod -l app=sonarr -n default --timeout=300s
-	@echo "Waiting for Sonarr to initialize..."
-	sleep 60
-	@echo "Extracting API key..."
-	@SONARR_POD=$$(kubectl get pod -l app=sonarr -n default -o jsonpath='{.items[0].metadata.name}'); \
-	API_KEY=$$(kubectl exec $$SONARR_POD -n default -- cat /config/config.xml 2>/dev/null | grep -oP '(?<=<ApiKey>)[^<]+'); \
-	echo "API Key: $$API_KEY"; \
-	kubectl create secret generic sonarr-api-key --from-literal=api-key="$$API_KEY" -n default --dry-run=client -o yaml | kubectl apply -f -
+.PHONY: e2e-deploy-sonarr
+e2e-deploy-sonarr: install ## Create API key secret + apply Sonarr CR (operator must be running)
+	@echo "Creating API key secret..."
+	kubectl create secret generic sonarr-api-key \
+		--from-literal=api-key="$(E2E_API_KEY)" \
+		-n default --dry-run=client -o yaml | kubectl apply -f -
+	@echo "Applying Sonarr CR..."
 	kubectl apply -f tests/e2e/fixtures/sonarr-instance.yaml
-	@echo "Sonarr deployed and configured"
+	@echo "Waiting for Sonarr to be ready..."
+	kubectl wait --for=jsonpath='{.status.conditions[?(@.type=="Ready")].status}'=True \
+		sonarr/sonarr -n default --timeout=300s
+	@echo "Sonarr instance is ready"
 
 .PHONY: e2e
-e2e: ## Run E2E tests (requires e2e-setup or e2e-sonarr first, operator running)
+e2e: ## Run E2E tests (requires operator + Sonarr running)
 	@echo "Running E2E tests..."
 	@if [ -z "$$SONARR_API_KEY" ]; then \
 		echo "ERROR: SONARR_API_KEY environment variable not set"; \
-		echo "Run: export SONARR_API_KEY=\$$(cat tests/e2e/fixtures/.sonarr-api-key)"; \
+		echo "Run: export SONARR_API_KEY=$(E2E_API_KEY)"; \
 		exit 1; \
 	fi
 	@if [ -z "$$SONARR_URL" ]; then \
@@ -231,33 +232,12 @@ e2e-verbose: ## Run E2E tests with verbose output
 	fi
 	RUST_LOG=debug cargo test --test e2e -- --ignored --test-threads=1 --nocapture
 
-.PHONY: e2e-port-forward
-e2e-port-forward: ## Start port-forward to Sonarr (run in separate terminal)
-	@echo "Port-forwarding to Sonarr on localhost:8989..."
-	@echo "Press Ctrl+C to stop"
-	kubectl port-forward svc/sonarr 8989:8989 -n default
-
 .PHONY: e2e-cleanup
 e2e-cleanup: ## Cleanup E2E test resources
-	chmod +x tests/e2e/fixtures/cleanup.sh
-	./tests/e2e/fixtures/cleanup.sh
-
-.PHONY: e2e-full
-e2e-full: e2e-setup ## Run full E2E test suite (setup + tests + cleanup)
-	@echo "Starting operator in background..."
-	RUST_LOG=info cargo run &
-	sleep 10
-	@echo "Setting up port-forward..."
-	kubectl port-forward svc/sonarr 8989:8989 -n default &
-	sleep 5
-	@echo "Running E2E tests..."
-	export SONARR_API_KEY=$$(cat tests/e2e/fixtures/.sonarr-api-key); \
-	export SONARR_URL="http://localhost:8989"; \
-	cargo test --test e2e -- --ignored --test-threads=1 || true
-	@echo "Cleaning up..."
-	pkill -f "cargo run" || true
-	pkill -f "port-forward" || true
-	$(MAKE) e2e-cleanup
+	kubectl delete -f tests/e2e/fixtures/sonarr-instance.yaml --ignore-not-found
+	kubectl delete secret sonarr-api-key -n default --ignore-not-found
+	kubectl delete namespace sonarr-e2e-test --ignore-not-found
+	@echo "E2E resources cleaned up"
 
 ##@ Complete Workflows
 

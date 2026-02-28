@@ -19,7 +19,7 @@ spec:
       serviceAccountName: sonarr-operator
       containers:
         - name: operator
-          image: k3d-registry:5000/sonarr-operator:latest
+          image: ghcr.io/OWNER/sonarr-operator:latest
           imagePullPolicy: Always
           env:
             - name: RUST_LOG

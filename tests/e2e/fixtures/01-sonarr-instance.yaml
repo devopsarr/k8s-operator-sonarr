@@ -1,7 +1,0 @@
-apiVersion: devopsarr.io/v1alpha1
-kind: Sonarr
-metadata:
-  name: sonarr
-  namespace: default
-spec:
-  image: lscr.io/linuxserver/sonarr:latest
