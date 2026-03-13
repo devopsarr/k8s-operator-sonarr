@@ -2,8 +2,7 @@ FROM rust:1.88-slim-bookworm AS builder
 
 WORKDIR /app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+# No system dependencies needed - project uses rustls
 
 # Copy manifests
 COPY Cargo.toml Cargo.lock ./

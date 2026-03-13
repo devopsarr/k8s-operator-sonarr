@@ -1,4 +1,3 @@
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -80,35 +79,10 @@ pub struct SonarrInstanceRef {
     pub namespace: Option<String>,
 }
 
-/// Base status fields shared by all Sonarr sub-resources (tags, notifications, etc.)
-/// This provides a consistent status structure with conditions, id, and observed generation.
-#[derive(Deserialize, Serialize, Clone, Debug, Default, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct SonarrSubResourceStatus {
-    /// Current conditions
-    #[serde(default)]
-    pub conditions: Vec<Condition>,
-
-    /// Sonarr resource ID
-    #[serde(default)]
-    pub id: Option<i32>,
-
-    /// Observed generation
-    #[serde(default)]
-    pub observed_generation: i64,
-}
-
 /// Common constants for the operator
 pub const FINALIZER: &str = "sonarr.io/finalizer";
-pub const SONARR_GROUP: &str = "devopsarr.io";
-pub const SONARR_VERSION: &str = "v1alpha1";
 
 /// Common labels
 pub const LABEL_APP: &str = "app.kubernetes.io/name";
 pub const LABEL_INSTANCE: &str = "app.kubernetes.io/instance";
 pub const LABEL_MANAGED_BY: &str = "app.kubernetes.io/managed-by";
-pub const LABEL_COMPONENT: &str = "app.kubernetes.io/component";
-
-/// Annotations
-pub const ANNOTATION_SONARR_REF: &str = "sonarr.io/instance";
-pub const ANNOTATION_RESOURCE_ID: &str = "sonarr.io/resource-id";

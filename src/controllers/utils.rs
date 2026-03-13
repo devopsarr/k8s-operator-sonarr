@@ -28,18 +28,6 @@ pub fn progressing_condition(status: bool, reason: &str, message: &str) -> Condi
     }
 }
 
-/// Create a Synced condition
-pub fn synced_condition(status: bool, reason: &str, message: &str) -> Condition {
-    Condition {
-        type_: "Synced".to_string(),
-        status: if status { "True" } else { "False" }.to_string(),
-        reason: reason.to_string(),
-        message: message.to_string(),
-        last_transition_time: now(),
-        observed_generation: None,
-    }
-}
-
 /// Update conditions list, replacing existing conditions of the same type
 pub fn update_conditions(conditions: &mut Vec<Condition>, new_condition: Condition) {
     if let Some(existing) = conditions

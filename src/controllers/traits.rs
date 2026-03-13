@@ -255,6 +255,3 @@ where
 
 /// Common requeue duration for successful reconciliation
 pub const REQUEUE_DURATION: Duration = Duration::from_secs(300);
-
-/// Common requeue duration for errors
-pub const ERROR_REQUEUE_DURATION: Duration = Duration::from_secs(60);

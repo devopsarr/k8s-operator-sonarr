@@ -21,7 +21,7 @@ pub mod traits;
 mod utils;
 
 pub use traits::{
-    ERROR_REQUEUE_DURATION, HasSonarrInstanceRef, REQUEUE_DURATION, get_sonarr_config,
-    run_controller, update_status_failure, update_status_success,
+    HasSonarrInstanceRef, REQUEUE_DURATION, get_sonarr_config, run_controller,
+    update_status_failure, update_status_success,
 };
 pub use utils::*;
