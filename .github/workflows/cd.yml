@@ -26,8 +26,28 @@ jobs:
             tag_name: ${{ steps.release.outputs.tag_name }}
             version: ${{ steps.release.outputs.version }}
         steps:
-            - uses: googleapis/release-please-action@v4
+            - name: DevOpsArrBOT token
+              id: DevOpsArrBOT
+              uses: getsentry/action-github-app-token@v3
+              with:
+                  app_id: '305652'
+                  private_key: ${{ secrets.DEVOPSARRBOT_PRIVATE_KEY }}
+
+            - name: Set DevOpsArrBOT config
+              run: |
+                  git config --global user.name "devopsarr[bot]"
+                  git config --global user.email "127950054+devopsarr[bot]@users.noreply.github.com"
+
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+                  token: ${{ steps.DevOpsArrBOT.outputs.token }}
+
+            - name: Release Please
               id: release
+              uses: googleapis/release-please-action@v4
+              with:
+                  token: ${{ steps.DevOpsArrBOT.outputs.token }}
 
     # ============================================
     # Build and Push Multi-arch Image on Release
@@ -89,9 +109,17 @@ jobs:
         permissions:
             contents: write
         steps:
+            - name: DevOpsArrBOT token
+              id: DevOpsArrBOT
+              uses: getsentry/action-github-app-token@v3
+              with:
+                  app_id: '305652'
+                  private_key: ${{ secrets.DEVOPSARRBOT_PRIVATE_KEY }}
+
             - uses: actions/checkout@v4
               with:
                   ref: main
+                  token: ${{ steps.DevOpsArrBOT.outputs.token }}
 
             - uses: dtolnay/rust-toolchain@stable
             - uses: Swatinem/rust-cache@v2
@@ -114,8 +142,8 @@ jobs:
 
             - name: Commit and push docs
               run: |
-                  git config user.name "github-actions[bot]"
-                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git config user.name "devopsarr[bot]"
+                  git config user.email "127950054+devopsarr[bot]@users.noreply.github.com"
                   git add deploy/crds/ docs/api/
                   if git diff --cached --quiet; then
                     echo "No documentation changes to commit"
@@ -126,7 +154,7 @@ jobs:
 
             - name: Attach CRDs to release
               env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GITHUB_TOKEN: ${{ steps.DevOpsArrBOT.outputs.token }}
               run: |
                   tar czf crds.tar.gz -C deploy/crds .
                   gh release upload ${{ needs.release-please.outputs.tag_name }} crds.tar.gz
