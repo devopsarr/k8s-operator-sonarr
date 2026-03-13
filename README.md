@@ -58,29 +58,24 @@ For detailed API specifications, see the [CRD Reference](docs/api/crd-reference.
 
 ### Prerequisites
 
-- Kubernetes cluster (1.25+)
-- Rust toolchain (for building from source)
-- A running Sonarr instance
+- Kubernetes cluster (1.28+)
+- [k3d](https://k3d.io/) for local development
+- Rust toolchain (1.88+) for building from source
 
 ### Installation
 
 1. **Install CRDs**
 
 ```bash
-make crds
-kubectl apply -f deploy/crds/crds.yaml
+kubectl apply -f deploy/crds/
 ```
 
 2. **Deploy the Operator**
 
 ```bash
-# Build and push Docker image (adjust image name as needed)
-make docker
-docker tag sonarr-operator:latest your-registry/sonarr-operator:latest
-docker push your-registry/sonarr-operator:latest
-
-# Deploy to cluster
-kubectl apply -f deploy/
+kubectl apply -f deploy/namespace.yaml
+kubectl apply -f deploy/rbac.yaml
+kubectl apply -f deploy/deployment.yaml
 ```
 
 3. **Create a Sonarr Instance Reference**
@@ -128,136 +123,51 @@ spec:
   path: "/media/tv"
 ```
 
-## Usage Examples
-
-### Managing Tags
-
-```yaml
-apiVersion: devopsarr.io/v1alpha1
-kind: SonarrTag
-metadata:
-  name: documentary
-spec:
-  sonarrInstanceRef:
-    name: my-sonarr
-  label: "documentary"
-```
-
-### Adding a Series
-
-```yaml
-apiVersion: devopsarr.io/v1alpha1
-kind: SonarrSeries
-metadata:
-  name: breaking-bad
-spec:
-  sonarrInstanceRef:
-    name: my-sonarr
-  tvdbId: 81189
-  qualityProfileId: 1
-  rootFolderPath: "/media/tv"
-  monitored: true
-  seasonFolder: true
-  seriesType: Standard
-  monitor: All
-  searchOnAdd: true
-  tags: []
-```
-
-### Configuring a Download Client
-
-```yaml
-apiVersion: devopsarr.io/v1alpha1
-kind: SonarrDownloadClient
-metadata:
-  name: qbittorrent
-spec:
-  sonarrInstanceRef:
-    name: my-sonarr
-  name: "qBittorrent"
-  enable: true
-  priority: 1
-  downloadClientType: QBittorrent
-  fields:
-    - name: host
-      value: "qbittorrent.example.com"
-    - name: port
-      value: "8080"
-    - name: username
-      value: "admin"
-    - name: password
-      secretRef:
-        name: qbittorrent-secret
-        key: password
-```
-
-### Setting Up Notifications
-
-```yaml
-apiVersion: devopsarr.io/v1alpha1
-kind: SonarrNotification
-metadata:
-  name: discord
-spec:
-  sonarrInstanceRef:
-    name: my-sonarr
-  name: "Discord"
-  notificationType: Discord
-  triggers:
-    onGrab: true
-    onDownload: true
-    onUpgrade: true
-    onRename: false
-    onSeriesAdd: true
-    onSeriesDelete: false
-    onEpisodeFileDelete: false
-    onEpisodeFileDeleteForUpgrade: false
-    onHealthIssue: true
-    onHealthRestored: true
-    onApplicationUpdate: false
-    onManualInteractionRequired: false
-    includeHealthWarnings: false
-  tags: []
-```
-
-## Building from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/your-org/kubernetes-operator-sonarr.git
-cd kubernetes-operator-sonarr
-
-# Build
-make build
-
-# Run locally (requires kubeconfig)
-make run
-```
-
 ## Development
 
+### Building
+
 ```bash
-# Check code
-make check
-
-# Run linters
-make lint
-
-# Run tests
-make test
-
-# Generate CRDs
-make crds
+make build        # Release binary
+make build-debug  # Debug binary
+make crds         # Generate CRD manifests
+make docs         # Generate CRD documentation
 ```
 
-## Testing
+### Linting & Testing
 
-See [docs/TESTING.md](docs/TESTING.md) for comprehensive testing instructions, including:
+```bash
+make lint              # Format check + clippy
+make test              # Unit tests
+make integration-test  # Integration tests (requires cluster with CRDs)
+```
 
-- Unit testing
-- Local development with Kind
-- End-to-end testing with a real Sonarr instance
-- CI/CD integration
+### Local E2E Testing
+
+The local E2E workflow uses [k3d](https://k3d.io/) to create a cluster with Sonarr:
+
+```bash
+# Terminal 1: Create cluster + deploy Sonarr
+make e2e-up
+
+# Terminal 2: Run the operator locally
+make run-debug
+
+# Terminal 3: Run E2E tests
+make e2e
+
+# Cleanup
+make e2e-down
+```
+
+See [docs/TESTING.md](docs/TESTING.md) for more details.
+
+### Deploy to a Local Cluster
+
+```bash
+make deploy    # Build image, import into k3d, deploy operator
+make undeploy  # Remove operator from cluster
+```
 
 ## Architecture
 
@@ -327,23 +237,19 @@ Each controller runs an independent reconciliation loop:
 |----------|-------------|---------|
 | `RUST_LOG` | Log level (trace, debug, info, warn, error) | `info` |
 
-### Operator Flags
-
-The operator currently does not require any command-line flags and uses the default kubeconfig or in-cluster configuration.
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+3. Commit your changes using [Conventional Commits](https://www.conventionalcommits.org/) (`git commit -m 'feat: add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
