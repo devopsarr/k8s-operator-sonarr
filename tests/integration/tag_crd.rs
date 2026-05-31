@@ -219,7 +219,7 @@ async fn test_create_multiple_tags() {
 
         api.patch(&name, &patch_params, &Patch::Apply(&tag))
             .await
-            .expect(&format!("Failed to create tag {}", tag_label));
+            .expect("Failed to create tag");
     }
 
     // List with label selector

@@ -350,21 +350,21 @@ async fn test_invalid_tag_reference_handling() {
     let api: Api<SonarrAutoTag> = Api::namespaced(ctx.client.clone(), E2E_NAMESPACE);
     let result = api.get(&autotag_name).await;
 
-    if let Ok(autotag) = result {
-        if let Some(status) = &autotag.status {
-            let has_error = status
-                .conditions
-                .iter()
-                .any(|c| c.type_ == "Ready" && c.status == "False");
+    if let Ok(autotag) = result
+        && let Some(status) = &autotag.status
+    {
+        let has_error = status
+            .conditions
+            .iter()
+            .any(|c| c.type_ == "Ready" && c.status == "False");
 
-            if has_error {
-                tracing::info!("✓ AutoTag correctly shows error for invalid tag reference");
-            } else {
-                // Some Sonarr versions accept invalid tag IDs
-                tracing::warn!(
-                    "AutoTag was created despite invalid tag reference - Sonarr may accept any tag ID"
-                );
-            }
+        if has_error {
+            tracing::info!("✓ AutoTag correctly shows error for invalid tag reference");
+        } else {
+            // Some Sonarr versions accept invalid tag IDs
+            tracing::warn!(
+                "AutoTag was created despite invalid tag reference - Sonarr may accept any tag ID"
+            );
         }
     }
 

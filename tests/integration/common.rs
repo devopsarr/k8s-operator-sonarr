@@ -1,5 +1,7 @@
 //! Common utilities for integration tests
 
+#![allow(dead_code)]
+
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
 use kube::{
     Client, Resource,
@@ -89,12 +91,12 @@ pub async fn is_crd_established(client: &Client, crd_name: &str) -> bool {
 
     match crds.get(crd_name).await {
         Ok(crd) => {
-            if let Some(status) = crd.status {
-                if let Some(conditions) = status.conditions {
-                    return conditions
-                        .iter()
-                        .any(|c| c.type_ == "Established" && c.status == "True");
-                }
+            if let Some(status) = crd.status
+                && let Some(conditions) = status.conditions
+            {
+                return conditions
+                    .iter()
+                    .any(|c| c.type_ == "Established" && c.status == "True");
             }
             false
         }
@@ -181,13 +183,10 @@ where
 
     timeout(DEFAULT_TIMEOUT, async {
         loop {
-            match api.get(name).await {
-                Ok(resource) => {
-                    if condition_fn(&resource) {
-                        return Ok(resource);
-                    }
-                }
-                Err(_) => {}
+            if let Ok(resource) = api.get(name).await
+                && condition_fn(&resource)
+            {
+                return Ok(resource);
             }
             tokio::time::sleep(Duration::from_millis(500)).await;
         }

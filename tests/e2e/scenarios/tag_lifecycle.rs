@@ -199,7 +199,7 @@ async fn test_multiple_tags() {
     for tag_name in &tag_names {
         wait_for_ready::<SonarrTag>(&ctx.client, E2E_NAMESPACE, tag_name, E2E_TIMEOUT)
             .await
-            .expect(&format!("Tag {} never became ready", tag_name));
+            .expect("Tag never became ready");
     }
 
     // Verify all exist in Sonarr
@@ -209,7 +209,7 @@ async fn test_multiple_tags() {
             .find_tag_by_label(tag_name)
             .await
             .expect("Failed to query Sonarr")
-            .expect(&format!("Tag {} not found in Sonarr", tag_name));
+            .expect("Tag not found in Sonarr");
 
         tracing::info!(
             "✓ Tag {} created in Sonarr with ID {}",

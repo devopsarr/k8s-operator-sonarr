@@ -84,7 +84,7 @@ async fn test_create_multiple_root_folders() {
     let api: Api<SonarrRootFolder> = Api::namespaced(client.clone(), TEST_NAMESPACE);
     let patch_params = PatchParams::apply("sonarr-operator-test").force();
 
-    let paths = vec!["/tv/shows", "/tv/anime", "/tv/documentaries"];
+    let paths = ["/tv/shows", "/tv/anime", "/tv/documentaries"];
     let mut names = Vec::new();
 
     for (i, path) in paths.iter().enumerate() {
@@ -110,7 +110,7 @@ async fn test_create_multiple_root_folders() {
 
         api.patch(&name, &patch_params, &Patch::Apply(&root_folder))
             .await
-            .expect(&format!("Failed to create root folder for path {}", path));
+            .expect("Failed to create root folder");
     }
 
     // List with label selector

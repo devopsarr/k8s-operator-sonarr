@@ -253,10 +253,7 @@ async fn test_configure_different_quality_levels() {
 
         api.patch(&name, &patch_params, &Patch::Apply(&qd))
             .await
-            .expect(&format!(
-                "Failed to create quality definition for {}",
-                quality_slug
-            ));
+            .expect("Failed to create quality definition");
     }
 
     // Verify all were created
