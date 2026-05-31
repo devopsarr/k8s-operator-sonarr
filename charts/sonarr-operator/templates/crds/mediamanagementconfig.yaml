@@ -1,25 +1,36 @@
+{{- if .Values.crds.install }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: sonarrnamingconfigs.devopsarr.io
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrmediamanagementconfigs.devopsarr.io
 spec:
   group: devopsarr.io
   names:
     categories: []
-    kind: SonarrNamingConfig
-    plural: sonarrnamingconfigs
+    kind: SonarrMediaManagementConfig
+    plural: sonarrmediamanagementconfigs
     shortNames:
-    - snc
-    singular: sonarrnamingconfig
+    - smmc
+    singular: sonarrmediamanagementconfig
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.sonarrInstanceRef.name
       name: Instance
       type: string
-    - jsonPath: .spec.renameEpisodes
-      name: Rename
-      type: boolean
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -29,59 +40,111 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for SonarrNamingConfigSpec via `CustomResource`
+        description: Auto-generated derived type for SonarrMediaManagementConfigSpec via `CustomResource`
         properties:
           spec:
             description: |-
-              SonarrNamingConfig configures episode naming settings for a Sonarr instance.
-              Only one SonarrNamingConfig per Sonarr instance is allowed.
+              SonarrMediaManagementConfig configures media management settings for a Sonarr instance.
+              Only one SonarrMediaManagementConfig per Sonarr instance is allowed.
             properties:
-              animeEpisodeFormat:
-                description: |-
-                  Anime episode format
-                  Example: "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Quality Full}"
+              autoUnmonitorPreviouslyDownloadedEpisodes:
+                description: Auto unmonitor previously downloaded episodes when marked as deleted
+                nullable: true
+                type: boolean
+              chmodFolder:
+                description: chmod folder permissions (e.g., "755")
                 nullable: true
                 type: string
-              colonReplacementFormat:
-                description: Colon replacement format (0=Delete, 1=Dash, 2=SpaceDash, 3=SpaceDashSpace, 4=Smart)
+              chownGroup:
+                description: chown group
+                nullable: true
+                type: string
+              copyUsingHardlinks:
+                description: Use hardlinks instead of copy when possible
+                nullable: true
+                type: boolean
+              createEmptySeriesFolders:
+                description: Create empty series folders during disk scan
+                nullable: true
+                type: boolean
+              deleteEmptyFolders:
+                description: Delete empty series and season folders during disk scan
+                nullable: true
+                type: boolean
+              downloadPropersAndRepacks:
+                description: 'Download propers and repacks: DoNotPrefer, PreferAndUpgrade, DoNotUpgrade'
+                enum:
+                - DoNotPrefer
+                - PreferAndUpgrade
+                - DoNotUpgrade
+                - null
+                nullable: true
+                type: string
+              enableMediaInfo:
+                description: Enable media info scanning
+                nullable: true
+                type: boolean
+              episodeTitleRequired:
+                description: 'Episode title required: Always, BulkSeasonReleases, Never'
+                enum:
+                - Always
+                - BulkSeasonReleases
+                - Never
+                - null
+                nullable: true
+                type: string
+              extraFileExtensions:
+                description: Extra file extensions to import (e.g., "srt,sub")
+                nullable: true
+                type: string
+              fileDate:
+                description: 'File date to use: None, LocalAirDate, UtcAirDate'
+                enum:
+                - None
+                - LocalAirDate
+                - UtcAirDate
+                - null
+                nullable: true
+                type: string
+              importExtraFiles:
+                description: Import extra files (subtitles, etc.)
+                nullable: true
+                type: boolean
+              minimumFreeSpaceWhenImporting:
+                description: Minimum free space when importing (MB)
                 format: int32
                 nullable: true
                 type: integer
-              customColonReplacementFormat:
-                description: Custom colon replacement format string
+              recycleBin:
+                description: Recycle bin path (empty to disable)
                 nullable: true
                 type: string
-              dailyEpisodeFormat:
-                description: |-
-                  Daily episode format
-                  Example: "{Series Title} - {Air-Date} - {Episode Title} {Quality Full}"
-                nullable: true
-                type: string
-              multiEpisodeStyle:
-                description: Multi-episode style (0=Extend, 1=Duplicate, 2=Repeat, 3=Scene, 4=Range, 5=PrefixedRange)
+              recycleBinCleanupDays:
+                description: Days to keep files in recycle bin before cleaning (0 to disable)
                 format: int32
                 nullable: true
                 type: integer
-              renameEpisodes:
-                description: Enable episode renaming
-                nullable: true
-                type: boolean
-              replaceIllegalCharacters:
-                description: Replace illegal characters in filenames
-                nullable: true
-                type: boolean
-              seasonFolderFormat:
-                description: |-
-                  Season folder format
-                  Example: "Season {season}"
+              rescanAfterRefresh:
+                description: 'Rescan series folder after refresh: Always, AfterManual, Never'
+                enum:
+                - Always
+                - AfterManual
+                - Never
+                - null
                 nullable: true
                 type: string
-              seriesFolderFormat:
-                description: |-
-                  Series folder format
-                  Example: "{Series Title}"
+              scriptImportPath:
+                description: Script import path
                 nullable: true
                 type: string
+              setPermissionsLinux:
+                description: Set permissions on Linux/macOS
+                nullable: true
+                type: boolean
+              skipFreeSpaceCheckWhenImporting:
+                description: Skip free space check when importing
+                nullable: true
+                type: boolean
               sonarrInstanceRef:
                 description: Reference to the Sonarr instance
                 properties:
@@ -94,18 +157,10 @@ spec:
                     nullable: true
                     type: string
                 type: object
-              specialsFolderFormat:
-                description: |-
-                  Specials folder format
-                  Example: "Specials"
+              useScriptImport:
+                description: Use script for importing
                 nullable: true
-                type: string
-              standardEpisodeFormat:
-                description: |-
-                  Standard episode format
-                  Example: "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Quality Full}"
-                nullable: true
-                type: string
+                type: boolean
             required:
             - sonarrInstanceRef
             type: object
@@ -154,9 +209,10 @@ spec:
             type: object
         required:
         - spec
-        title: SonarrNamingConfig
+        title: SonarrMediaManagementConfig
         type: object
     served: true
     storage: true
     subresources:
       status: {}
+{{- end }}

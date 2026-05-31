@@ -1,31 +1,36 @@
+{{- if .Values.crds.install }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: sonarrqualitydefinitions.devopsarr.io
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrcustomformats.devopsarr.io
 spec:
   group: devopsarr.io
   names:
     categories: []
-    kind: SonarrQualityDefinition
-    plural: sonarrqualitydefinitions
+    kind: SonarrCustomFormat
+    plural: sonarrcustomformats
     shortNames:
-    - sqd
-    singular: sonarrqualitydefinition
+    - scf
+    singular: sonarrcustomformat
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.qualityName
-      name: Quality
+    - jsonPath: .spec.name
+      name: Name
       type: string
-    - jsonPath: .spec.title
-      name: Title
-      type: string
-    - jsonPath: .spec.minSize
-      name: MinSize
-      type: number
-    - jsonPath: .spec.maxSize
-      name: MaxSize
-      type: number
     - jsonPath: .status.id
       name: ID
       type: integer
@@ -38,52 +43,19 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for SonarrQualityDefinitionSpec via `CustomResource`
+        description: Auto-generated derived type for SonarrCustomFormatSpec via `CustomResource`
         properties:
           spec:
             description: |-
-              SonarrQualityDefinition represents a quality definition configuration in Sonarr
-              Quality definitions control the size limits for each quality level
+              SonarrCustomFormat represents a custom format configuration in Sonarr
+              Custom formats are used to score releases based on various criteria
             properties:
-              maxSize:
-                description: Maximum size in MB per minute of runtime (None = unlimited)
-                format: double
-                nullable: true
-                type: number
-              minSize:
-                description: Minimum size in MB per minute of runtime
-                format: double
-                nullable: true
-                type: number
-              preferredSize:
-                description: Preferred size in MB per minute of runtime
-                format: double
-                nullable: true
-                type: number
-              qualityName:
-                description: Quality name (must match existing quality in Sonarr)
-                enum:
-                - UNKNOWN
-                - SDTV
-                - DVD
-                - WEBDL-480p
-                - WEBRip-480p
-                - Bluray-480p
-                - HDTV-720p
-                - HDTV-1080p
-                - Raw-HD
-                - WEBDL-720p
-                - WEBRip-720p
-                - Bluray-720p
-                - WEBDL-1080p
-                - WEBRip-1080p
-                - Bluray-1080p
-                - Bluray-1080p Remux
-                - HDTV-2160p
-                - WEBDL-2160p
-                - WEBRip-2160p
-                - Bluray-2160p
-                - Bluray-2160p Remux
+              includeCustomFormatWhenRenaming:
+                default: false
+                description: Include custom format name when renaming files
+                type: boolean
+              name:
+                description: Custom format name
                 type: string
               sonarrInstanceRef:
                 description: Reference to the SonarrInstance
@@ -97,12 +69,64 @@ spec:
                     nullable: true
                     type: string
                 type: object
-              title:
-                description: Title/display name for this quality
-                nullable: true
-                type: string
+              specifications:
+                default: []
+                description: Specifications (conditions) for this custom format
+                items:
+                  properties:
+                    fields:
+                      default:
+                        max: null
+                        min: null
+                        value: null
+                      description: Fields/values for this specification
+                      properties:
+                        max:
+                          description: Maximum value (for size specifications)
+                          format: double
+                          nullable: true
+                          type: number
+                        min:
+                          description: Minimum value (for size specifications)
+                          format: double
+                          nullable: true
+                          type: number
+                        value:
+                          description: Value for the specification (regex pattern, source type, etc.)
+                          nullable: true
+                          type: string
+                      type: object
+                    implementation:
+                      description: Specification type/implementation
+                      enum:
+                      - releaseTitleSpecification
+                      - sourceSpecification
+                      - resolutionSpecification
+                      - qualityModifierSpecification
+                      - sizeSpecification
+                      - indexerFlagSpecification
+                      - languageSpecification
+                      - releaseGroupSpecification
+                      - editionSpecification
+                      type: string
+                    name:
+                      description: Specification name
+                      type: string
+                    negate:
+                      default: false
+                      description: Negate this condition
+                      type: boolean
+                    required:
+                      default: true
+                      description: This condition is required
+                      type: boolean
+                  required:
+                  - implementation
+                  - name
+                  type: object
+                type: array
             required:
-            - qualityName
+            - name
             - sonarrInstanceRef
             type: object
           status:
@@ -143,7 +167,7 @@ spec:
                   type: object
                 type: array
               id:
-                description: Sonarr Quality Definition ID
+                description: Sonarr Custom Format ID
                 format: int32
                 nullable: true
                 type: integer
@@ -155,9 +179,10 @@ spec:
             type: object
         required:
         - spec
-        title: SonarrQualityDefinition
+        title: SonarrCustomFormat
         type: object
     served: true
     storage: true
     subresources:
       status: {}
+{{- end }}

@@ -1,0 +1,29 @@
+apiVersion: v2
+name: sonarr-operator
+description: A Kubernetes operator for managing Sonarr instances and their
+  configuration via Custom Resources
+type: application
+# Chart version is bumped lockstep with the operator binary by release-please
+# (linked-versions plugin). `appVersion` tracks the operator's crate version.
+version: 0.1.0
+appVersion: "0.1.0" # x-release-please-version
+kubeVersion: ">=1.28.0-0"
+home: https://github.com/devopsarr/k8s-operator-sonarr
+sources:
+  - https://github.com/devopsarr/k8s-operator-sonarr
+maintainers:
+  - name: DevOpsArr
+    url: https://github.com/devopsarr
+keywords:
+  - sonarr
+  - operator
+  - kubernetes
+  - kube-rs
+  - media
+  - arr
+annotations:
+  artifacthub.io/category: integration-delivery
+  artifacthub.io/license: GPL-3.0
+  artifacthub.io/operator: "true"
+  artifacthub.io/operatorCapabilities: Basic Install
+  artifacthub.io/prerelease: "true"

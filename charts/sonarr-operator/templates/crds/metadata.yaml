@@ -1,27 +1,41 @@
+{{- if .Values.crds.install }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: sonarrseries.devopsarr.io
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrmetadatas.devopsarr.io
 spec:
   group: devopsarr.io
   names:
     categories: []
-    kind: SonarrSeries
-    plural: sonarrseries
+    kind: SonarrMetadata
+    plural: sonarrmetadatas
     shortNames:
-    - ss
-    singular: sonarrseries
+    - smeta
+    singular: sonarrmetadata
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.title
-      name: Title
+    - jsonPath: .spec.name
+      name: Name
       type: string
-    - jsonPath: .spec.tvdbId
-      name: TVDB ID
-      type: integer
-    - jsonPath: .spec.monitored
-      name: Monitored
+    - jsonPath: .spec.metadataType
+      name: Type
+      type: string
+    - jsonPath: .spec.enable
+      name: Enabled
       type: boolean
     - jsonPath: .status.id
       name: ID
@@ -35,78 +49,61 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for SonarrSeriesSpec via `CustomResource`
+        description: Auto-generated derived type for SonarrMetadataSpec via `CustomResource`
         properties:
           spec:
             description: |-
-              SonarrSeries represents a TV series managed in Sonarr
-              This allows declarative management of series in your library
+              SonarrMetadata represents a metadata consumer configuration in Sonarr
+              Metadata consumers write metadata files for media managers (Kodi, Plex, etc.)
             properties:
-              addOptions:
+              config:
                 default:
-                  monitor: all
-                  searchForCutoffUnmetEpisodes: false
-                  searchForMissingEpisodes: true
-                description: Monitor type for adding series
+                  episodeImages: false
+                  episodeMetadata: false
+                  seasonImages: false
+                  seriesImages: false
+                  seriesMetadata: false
+                  seriesMetadataUrl: false
+                description: Metadata-specific configuration
                 properties:
-                  monitor:
-                    default: all
-                    description: Monitor type
-                    enum:
-                    - all
-                    - future
-                    - missing
-                    - existing
-                    - recent
-                    - pilot
-                    - firstseason
-                    - lastseason
-                    - none
-                    type: string
-                  searchForCutoffUnmetEpisodes:
+                  episodeImages:
                     default: false
-                    description: Search for cutoff unmet episodes
+                    description: Write episode images (thumbnails)
                     type: boolean
-                  searchForMissingEpisodes:
+                  episodeMetadata:
                     default: true
-                    description: Search for missing episodes when adding
+                    description: Write episode metadata (episode.nfo)
+                    type: boolean
+                  seasonImages:
+                    default: true
+                    description: Write season images
+                    type: boolean
+                  seriesImages:
+                    default: true
+                    description: Write series images (poster, banner, fanart)
+                    type: boolean
+                  seriesMetadata:
+                    default: true
+                    description: Write series metadata (series.nfo)
+                    type: boolean
+                  seriesMetadataUrl:
+                    default: false
+                    description: Write series metadata URL (deprecated)
                     type: boolean
                 type: object
-              monitored:
+              enable:
                 default: true
-                description: Whether the series is monitored
+                description: Enable this metadata consumer
                 type: boolean
-              path:
-                description: Specific path override (optional)
-                nullable: true
-                type: string
-              qualityProfile:
-                description: Quality profile ID or name reference
-                properties:
-                  id:
-                    description: Quality profile ID
-                    format: int32
-                    nullable: true
-                    type: integer
-                  name:
-                    description: Quality profile name (will be resolved to ID)
-                    nullable: true
-                    type: string
-                type: object
-              rootFolderPath:
-                description: Root folder path for the series
-                type: string
-              seasonFolder:
-                default: true
-                description: Use season folders
-                type: boolean
-              seriesType:
-                default: standard
-                description: Series type
+              metadataType:
+                description: Metadata type/implementation
                 enum:
-                - standard
-                - daily
-                - anime
+                - xbmcMetadata
+                - roksboxMetadata
+                - wdtvMetadata
+                type: string
+              name:
+                description: Metadata consumer name
                 type: string
               sonarrInstanceRef:
                 description: Reference to the SonarrInstance
@@ -122,32 +119,15 @@ spec:
                 type: object
               tags:
                 default: []
-                description: Tags for this series
+                description: Tags for this metadata consumer
                 items:
                   format: int32
                   type: integer
                 type: array
-              title:
-                description: Series title
-                type: string
-              titleSlug:
-                description: Title slug (kebab-case version of title)
-                type: string
-              tvdbId:
-                description: TVDB ID for the series
-                format: int32
-                type: integer
-              useSceneNumbering:
-                default: false
-                description: Use scene numbering
-                type: boolean
             required:
-            - qualityProfile
-            - rootFolderPath
+            - metadataType
+            - name
             - sonarrInstanceRef
-            - title
-            - titleSlug
-            - tvdbId
             type: object
           status:
             nullable: true
@@ -186,53 +166,23 @@ spec:
                   - type
                   type: object
                 type: array
-              episodeCount:
-                description: Total episode count
-                format: int32
-                nullable: true
-                type: integer
-              episodeFileCount:
-                description: Episode file count
-                format: int32
-                nullable: true
-                type: integer
               id:
-                description: Sonarr Series ID
+                description: Sonarr Metadata ID
                 format: int32
                 nullable: true
                 type: integer
-              network:
-                description: Network
-                nullable: true
-                type: string
-              nextAiring:
-                description: Next airing date
-                nullable: true
-                type: string
               observedGeneration:
                 default: 0
                 description: Observed generation
                 format: int64
                 type: integer
-              percentComplete:
-                description: Percentage complete
-                format: double
-                nullable: true
-                type: number
-              previousAiring:
-                description: Previous airing date
-                nullable: true
-                type: string
-              seriesStatus:
-                description: Status (continuing, ended, etc.)
-                nullable: true
-                type: string
             type: object
         required:
         - spec
-        title: SonarrSeries
+        title: SonarrMetadata
         type: object
     served: true
     storage: true
     subresources:
       status: {}
+{{- end }}

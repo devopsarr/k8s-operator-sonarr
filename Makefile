@@ -11,7 +11,9 @@
 
 # Configuration
 BINARY_NAME := sonarr-operator
-CRD_DIR := deploy/crds
+CHART_DIR := charts/sonarr-operator
+CRD_DIR := $(CHART_DIR)/templates/crds
+RENDERED_CRDS := dist/crds.yaml
 NAMESPACE := sonarr-operator-system
 K3D_CLUSTER := sonarr-e2e
 E2E_API_KEY ?= test-e2e-api-key-12345
@@ -77,18 +79,28 @@ integration-test-verbose: install ## Run integration tests with verbose output
 ##@ CRD Management
 
 .PHONY: crds
-crds: ## Generate CRD manifests
+crds: ## Generate helm-templated CRDs into the chart
 	@mkdir -p $(CRD_DIR)
 	@rm -f $(CRD_DIR)/*.yaml
-	cargo run --bin crdgen -- --split $(CRD_DIR)
+	cargo run --bin crdgen -- --split $(CRD_DIR) --helm
+
+.PHONY: crds-render
+crds-render: crds ## Render plain CRDs from the chart (for kubectl apply)
+	@mkdir -p $(dir $(RENDERED_CRDS))
+	helm template sonarr-operator $(CHART_DIR) \
+		--namespace $(NAMESPACE) \
+		--set crds.install=true \
+		--set crds.keep=false \
+		--show-only 'templates/crds/*.yaml' \
+		> $(RENDERED_CRDS)
 
 .PHONY: install
-install: crds ## Install CRDs to cluster
-	kubectl apply -f $(CRD_DIR)/
+install: crds-render ## Install CRDs to cluster
+	kubectl apply -f $(RENDERED_CRDS)
 
 .PHONY: uninstall
 uninstall: ## Remove CRDs from cluster
-	kubectl delete -f $(CRD_DIR)/ --ignore-not-found
+	kubectl delete -f $(RENDERED_CRDS) --ignore-not-found
 
 ##@ Documentation
 
@@ -96,13 +108,13 @@ DOCS_DIR := docs/api
 GOBIN := $(shell go env GOPATH)/bin
 
 .PHONY: docs
-docs: crds ## Generate CRD documentation
+docs: crds-render ## Generate CRD documentation
 	@mkdir -p $(DOCS_DIR)
 	@if ! command -v crdoc >/dev/null 2>&1 && [ ! -f "$(GOBIN)/crdoc" ]; then \
 		echo "Installing crdoc..."; \
 		go install fybrik.io/crdoc@latest; \
 	fi
-	@PATH="$(GOBIN):$$PATH" crdoc --resources $(CRD_DIR) --output $(DOCS_DIR)/crd-reference.md
+	@PATH="$(GOBIN):$$PATH" crdoc --resources $(RENDERED_CRDS) --output $(DOCS_DIR)/crd-reference.md
 	@echo "Documentation generated in $(DOCS_DIR)/crd-reference.md"
 
 ##@ Running
@@ -125,16 +137,17 @@ docker: ## Build Docker image and import into k3d cluster
 ##@ Kubernetes Deployment
 
 .PHONY: deploy
-deploy: install docker ## Deploy operator to cluster
-	kubectl apply -f deploy/namespace.yaml
-	kubectl apply -f deploy/rbac.yaml
-	sed 's|image: .*|image: $(BINARY_NAME):latest|' deploy/deployment.yaml | kubectl apply -f -
+deploy: docker ## Deploy operator (chart) to cluster with local image
+	helm upgrade --install sonarr-operator $(CHART_DIR) \
+		--namespace $(NAMESPACE) --create-namespace \
+		--set image.repository=$(BINARY_NAME) \
+		--set image.tag=latest \
+		--set image.pullPolicy=Never \
+		--wait
 
 .PHONY: undeploy
 undeploy: ## Remove operator from cluster
-	kubectl delete -f deploy/deployment.yaml --ignore-not-found
-	kubectl delete -f deploy/rbac.yaml --ignore-not-found
-	kubectl delete -f deploy/namespace.yaml --ignore-not-found
+	helm uninstall sonarr-operator -n $(NAMESPACE) --ignore-not-found
 
 ##@ Local E2E Testing (k3d)
 #

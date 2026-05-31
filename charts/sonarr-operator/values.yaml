@@ -1,0 +1,97 @@
+# Default values for sonarr-operator.
+
+# -- Number of operator replicas. Should remain at 1 (the operator does not yet support leader election).
+replicaCount: 1
+
+image:
+  # -- Container image repository.
+  repository: ghcr.io/devopsarr/k8s-operator-sonarr
+  # -- Image pull policy.
+  pullPolicy: IfNotPresent
+  # -- Image tag. Defaults to the chart's appVersion when empty.
+  tag: ""
+
+# -- Image pull secrets for private registries.
+imagePullSecrets: []
+
+# -- Override the chart name used in resource names.
+nameOverride: ""
+# -- Fully override the generated fullname used in resource names.
+fullnameOverride: ""
+
+# CRD-related options.
+# Disable when managing CRDs out-of-band (e.g. Flux Kustomization, ArgoCD
+# ServerSideApply, or multi-tenant clusters where CRDs are installed once).
+crds:
+  # -- Install CRDs via Helm templates when true.
+  install: true
+  # -- When true, adds `helm.sh/resource-policy: keep` to each CRD so they
+  # survive `helm uninstall`. Set to false for ephemeral test clusters.
+  keep: true
+  # -- Additional annotations merged into each CRD's `metadata.annotations`.
+  annotations: {}
+  # -- Additional labels merged into each CRD's `metadata.labels`.
+  additionalLabels: {}
+
+serviceAccount:
+  # -- Create a ServiceAccount for the operator.
+  create: true
+  # -- Annotations to add to the ServiceAccount.
+  annotations: {}
+  # -- Name of the ServiceAccount. Auto-generated when empty.
+  name: ""
+
+rbac:
+  # -- Create ClusterRole and ClusterRoleBinding for the operator.
+  create: true
+
+# -- Operator log level. Format: `<global>,<crate>=<level>` (passed as RUST_LOG).
+logLevel: "info,sonarr_operator=debug"
+
+# -- Extra environment variables for the operator container.
+extraEnv: []
+# - name: FOO
+#   value: bar
+
+# -- Pod-level security context.
+podSecurityContext:
+  fsGroup: 65534
+
+# -- Container-level security context.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+# -- Resource requests and limits for the operator container.
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+# -- Pod annotations.
+podAnnotations: {}
+# -- Pod labels.
+podLabels: {}
+
+# -- Node selector for the operator Pod.
+nodeSelector: {}
+# -- Tolerations for the operator Pod.
+tolerations: []
+# -- Affinity rules for the operator Pod.
+affinity: {}
+
+# -- Priority class name for the operator Pod.
+priorityClassName: ""
+
+# -- Liveness probe for the operator container.
+livenessProbe: {}
+# -- Readiness probe for the operator container.
+readinessProbe: {}

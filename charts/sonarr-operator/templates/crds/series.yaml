@@ -1,25 +1,42 @@
+{{- if .Values.crds.install }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: sonarrimportlists.devopsarr.io
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrseries.devopsarr.io
 spec:
   group: devopsarr.io
   names:
     categories: []
-    kind: SonarrImportList
-    plural: sonarrimportlists
+    kind: SonarrSeries
+    plural: sonarrseries
     shortNames:
-    - sil
-    singular: sonarrimportlist
+    - ss
+    singular: sonarrseries
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.name
-      name: Name
+    - jsonPath: .spec.title
+      name: Title
       type: string
-    - jsonPath: .spec.listType
-      name: Type
-      type: string
+    - jsonPath: .spec.tvdbId
+      name: TVDB ID
+      type: integer
+    - jsonPath: .spec.monitored
+      name: Monitored
+      type: boolean
     - jsonPath: .status.id
       name: ID
       type: integer
@@ -32,125 +49,67 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for SonarrImportListSpec via `CustomResource`
+        description: Auto-generated derived type for SonarrSeriesSpec via `CustomResource`
         properties:
           spec:
             description: |-
-              SonarrImportList represents an import list configuration in Sonarr
-              Import lists automatically add series from external sources (Trakt, Plex, etc.)
+              SonarrSeries represents a TV series managed in Sonarr
+              This allows declarative management of series in your library
             properties:
-              config:
+              addOptions:
                 default:
-                  accessToken: null
-                  apiKey: null
-                  authUser: null
-                  baseUrl: null
-                  languageProfileId: null
-                  listId: null
-                  listname: null
-                  profileIds: []
-                  tagIds: []
-                  traktListType: null
-                  username: null
-                description: Import list configuration
+                  monitor: all
+                  searchForCutoffUnmetEpisodes: false
+                  searchForMissingEpisodes: true
+                description: Monitor type for adding series
                 properties:
-                  accessToken:
-                    description: Access token (for Trakt/Plex)
-                    nullable: true
+                  monitor:
+                    default: all
+                    description: Monitor type
+                    enum:
+                    - all
+                    - future
+                    - missing
+                    - existing
+                    - recent
+                    - pilot
+                    - firstseason
+                    - lastseason
+                    - none
                     type: string
-                  apiKey:
-                    description: API key (for Sonarr import)
-                    nullable: true
-                    type: string
-                  authUser:
-                    description: Auth user (for Trakt)
-                    nullable: true
-                    type: string
-                  baseUrl:
-                    description: Base URL (for Sonarr import)
-                    nullable: true
-                    type: string
-                  languageProfileId:
-                    description: Language profile ID (deprecated in v4)
+                  searchForCutoffUnmetEpisodes:
+                    default: false
+                    description: Search for cutoff unmet episodes
+                    type: boolean
+                  searchForMissingEpisodes:
+                    default: true
+                    description: Search for missing episodes when adding
+                    type: boolean
+                type: object
+              monitored:
+                default: true
+                description: Whether the series is monitored
+                type: boolean
+              path:
+                description: Specific path override (optional)
+                nullable: true
+                type: string
+              qualityProfile:
+                description: Quality profile ID or name reference
+                properties:
+                  id:
+                    description: Quality profile ID
                     format: int32
                     nullable: true
                     type: integer
-                  listId:
-                    description: List ID
-                    nullable: true
-                    type: string
-                  listname:
-                    description: List name/ID
-                    nullable: true
-                    type: string
-                  profileIds:
-                    default: []
-                    description: Profile IDs (for Sonarr import)
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  tagIds:
-                    default: []
-                    description: Tag IDs (for Sonarr import)
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  traktListType:
-                    description: Trakt list type
-                    format: int32
-                    nullable: true
-                    type: integer
-                  username:
-                    description: Username (for various services)
+                  name:
+                    description: Quality profile name (will be resolved to ID)
                     nullable: true
                     type: string
                 type: object
-              enableAutomaticAdd:
-                default: true
-                description: Enable automatic add
-                type: boolean
-              listOrder:
-                default: 0
-                description: List order
-                format: int32
-                type: integer
-              listType:
-                description: Import list type/implementation
-                enum:
-                - sonarrImport
-                - traktListImport
-                - traktUserImport
-                - traktPopularImport
-                - plexImport
-                - imdbListImport
-                - customImport
-                - simklImport
-                - aniListImport
-                - myAnimeListImport
-                type: string
-              monitorNewItems:
-                default: all
-                description: Monitor new items
-                enum:
-                - all
-                - none
-                type: string
-              name:
-                description: Import list name
-                type: string
-              qualityProfileId:
-                description: Quality profile ID to use
-                format: int32
-                type: integer
               rootFolderPath:
-                description: Root folder path for imported series
+                description: Root folder path for the series
                 type: string
-              searchForMissingEpisodes:
-                default: false
-                description: Search for missing episodes when adding
-                type: boolean
               seasonFolder:
                 default: true
                 description: Use season folders
@@ -162,21 +121,6 @@ spec:
                 - standard
                 - daily
                 - anime
-                type: string
-              shouldMonitor:
-                default: all
-                description: Monitor type for imported series
-                enum:
-                - all
-                - future
-                - missing
-                - existing
-                - firstSeason
-                - latestSeason
-                - pilot
-                - monitorSpecials
-                - unmonitorSpecials
-                - none
                 type: string
               sonarrInstanceRef:
                 description: Reference to the SonarrInstance
@@ -192,17 +136,32 @@ spec:
                 type: object
               tags:
                 default: []
-                description: Tags for imported series
+                description: Tags for this series
                 items:
                   format: int32
                   type: integer
                 type: array
+              title:
+                description: Series title
+                type: string
+              titleSlug:
+                description: Title slug (kebab-case version of title)
+                type: string
+              tvdbId:
+                description: TVDB ID for the series
+                format: int32
+                type: integer
+              useSceneNumbering:
+                default: false
+                description: Use scene numbering
+                type: boolean
             required:
-            - listType
-            - name
-            - qualityProfileId
+            - qualityProfile
             - rootFolderPath
             - sonarrInstanceRef
+            - title
+            - titleSlug
+            - tvdbId
             type: object
           status:
             nullable: true
@@ -241,22 +200,54 @@ spec:
                   - type
                   type: object
                 type: array
-              id:
-                description: Sonarr Import List ID
+              episodeCount:
+                description: Total episode count
                 format: int32
                 nullable: true
                 type: integer
+              episodeFileCount:
+                description: Episode file count
+                format: int32
+                nullable: true
+                type: integer
+              id:
+                description: Sonarr Series ID
+                format: int32
+                nullable: true
+                type: integer
+              network:
+                description: Network
+                nullable: true
+                type: string
+              nextAiring:
+                description: Next airing date
+                nullable: true
+                type: string
               observedGeneration:
                 default: 0
                 description: Observed generation
                 format: int64
                 type: integer
+              percentComplete:
+                description: Percentage complete
+                format: double
+                nullable: true
+                type: number
+              previousAiring:
+                description: Previous airing date
+                nullable: true
+                type: string
+              seriesStatus:
+                description: Status (continuing, ended, etc.)
+                nullable: true
+                type: string
             type: object
         required:
         - spec
-        title: SonarrImportList
+        title: SonarrSeries
         type: object
     served: true
     storage: true
     subresources:
       status: {}
+{{- end }}

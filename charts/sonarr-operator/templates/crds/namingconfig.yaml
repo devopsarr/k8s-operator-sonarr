@@ -1,31 +1,39 @@
+{{- if .Values.crds.install }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: sonarrmetadatas.devopsarr.io
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrnamingconfigs.devopsarr.io
 spec:
   group: devopsarr.io
   names:
     categories: []
-    kind: SonarrMetadata
-    plural: sonarrmetadatas
+    kind: SonarrNamingConfig
+    plural: sonarrnamingconfigs
     shortNames:
-    - smeta
-    singular: sonarrmetadata
+    - snc
+    singular: sonarrnamingconfig
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.name
-      name: Name
+    - jsonPath: .spec.sonarrInstanceRef.name
+      name: Instance
       type: string
-    - jsonPath: .spec.metadataType
-      name: Type
-      type: string
-    - jsonPath: .spec.enable
-      name: Enabled
+    - jsonPath: .spec.renameEpisodes
+      name: Rename
       type: boolean
-    - jsonPath: .status.id
-      name: ID
-      type: integer
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -35,64 +43,61 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for SonarrMetadataSpec via `CustomResource`
+        description: Auto-generated derived type for SonarrNamingConfigSpec via `CustomResource`
         properties:
           spec:
             description: |-
-              SonarrMetadata represents a metadata consumer configuration in Sonarr
-              Metadata consumers write metadata files for media managers (Kodi, Plex, etc.)
+              SonarrNamingConfig configures episode naming settings for a Sonarr instance.
+              Only one SonarrNamingConfig per Sonarr instance is allowed.
             properties:
-              config:
-                default:
-                  episodeImages: false
-                  episodeMetadata: false
-                  seasonImages: false
-                  seriesImages: false
-                  seriesMetadata: false
-                  seriesMetadataUrl: false
-                description: Metadata-specific configuration
-                properties:
-                  episodeImages:
-                    default: false
-                    description: Write episode images (thumbnails)
-                    type: boolean
-                  episodeMetadata:
-                    default: true
-                    description: Write episode metadata (episode.nfo)
-                    type: boolean
-                  seasonImages:
-                    default: true
-                    description: Write season images
-                    type: boolean
-                  seriesImages:
-                    default: true
-                    description: Write series images (poster, banner, fanart)
-                    type: boolean
-                  seriesMetadata:
-                    default: true
-                    description: Write series metadata (series.nfo)
-                    type: boolean
-                  seriesMetadataUrl:
-                    default: false
-                    description: Write series metadata URL (deprecated)
-                    type: boolean
-                type: object
-              enable:
-                default: true
-                description: Enable this metadata consumer
-                type: boolean
-              metadataType:
-                description: Metadata type/implementation
-                enum:
-                - xbmcMetadata
-                - roksboxMetadata
-                - wdtvMetadata
+              animeEpisodeFormat:
+                description: |-
+                  Anime episode format
+                  Example: "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Quality Full}"
+                nullable: true
                 type: string
-              name:
-                description: Metadata consumer name
+              colonReplacementFormat:
+                description: Colon replacement format (0=Delete, 1=Dash, 2=SpaceDash, 3=SpaceDashSpace, 4=Smart)
+                format: int32
+                nullable: true
+                type: integer
+              customColonReplacementFormat:
+                description: Custom colon replacement format string
+                nullable: true
+                type: string
+              dailyEpisodeFormat:
+                description: |-
+                  Daily episode format
+                  Example: "{Series Title} - {Air-Date} - {Episode Title} {Quality Full}"
+                nullable: true
+                type: string
+              multiEpisodeStyle:
+                description: Multi-episode style (0=Extend, 1=Duplicate, 2=Repeat, 3=Scene, 4=Range, 5=PrefixedRange)
+                format: int32
+                nullable: true
+                type: integer
+              renameEpisodes:
+                description: Enable episode renaming
+                nullable: true
+                type: boolean
+              replaceIllegalCharacters:
+                description: Replace illegal characters in filenames
+                nullable: true
+                type: boolean
+              seasonFolderFormat:
+                description: |-
+                  Season folder format
+                  Example: "Season {season}"
+                nullable: true
+                type: string
+              seriesFolderFormat:
+                description: |-
+                  Series folder format
+                  Example: "{Series Title}"
+                nullable: true
                 type: string
               sonarrInstanceRef:
-                description: Reference to the SonarrInstance
+                description: Reference to the Sonarr instance
                 properties:
                   name:
                     default: ''
@@ -103,16 +108,19 @@ spec:
                     nullable: true
                     type: string
                 type: object
-              tags:
-                default: []
-                description: Tags for this metadata consumer
-                items:
-                  format: int32
-                  type: integer
-                type: array
+              specialsFolderFormat:
+                description: |-
+                  Specials folder format
+                  Example: "Specials"
+                nullable: true
+                type: string
+              standardEpisodeFormat:
+                description: |-
+                  Standard episode format
+                  Example: "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Quality Full}"
+                nullable: true
+                type: string
             required:
-            - metadataType
-            - name
             - sonarrInstanceRef
             type: object
           status:
@@ -152,11 +160,6 @@ spec:
                   - type
                   type: object
                 type: array
-              id:
-                description: Sonarr Metadata ID
-                format: int32
-                nullable: true
-                type: integer
               observedGeneration:
                 default: 0
                 description: Observed generation
@@ -165,9 +168,10 @@ spec:
             type: object
         required:
         - spec
-        title: SonarrMetadata
+        title: SonarrNamingConfig
         type: object
     served: true
     storage: true
     subresources:
       status: {}
+{{- end }}

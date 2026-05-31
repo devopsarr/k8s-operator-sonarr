@@ -2,6 +2,10 @@
 /target/
 **/*.rs.bk
 
+# Local build/render output
+/dist/
+/artifacts/
+
 # IDE and editor files
 .idea/
 .vscode/
@@ -52,5 +56,5 @@ tarpaulin-report.html
 /doc/
 
 # Binary artifacts (if accidentally placed in root)
-sonarr-operator
-crdgen
+/sonarr-operator
+/crdgen

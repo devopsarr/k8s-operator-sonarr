@@ -59,49 +59,54 @@ For detailed API specifications, see the [CRD Reference](docs/api/crd-reference.
 ### Prerequisites
 
 - Kubernetes cluster (1.28+)
-- [k3d](https://k3d.io/) for local development
-- Rust toolchain (1.88+) for building from source
+- [Helm](https://helm.sh/) 3.8+ (for OCI registry support)
+- [k3d](https://k3d.io/) for local development (optional)
 
-### Installation
+### Installation (Helm — recommended)
 
-1. **Install CRDs**
+Install the operator and its CRDs from the OCI chart on GHCR:
 
 ```bash
-kubectl apply -f deploy/crds/
+helm install sonarr-operator \
+  oci://ghcr.io/devopsarr/charts/sonarr-operator \
+  --namespace sonarr-operator-system \
+  --create-namespace
 ```
 
-2. **Deploy the Operator**
+The chart installs the operator Deployment, RBAC, and all 19 CRDs. CRDs are annotated `helm.sh/resource-policy: keep`, so they (and any `Sonarr` resources) survive a `helm uninstall`.
+
+To install a specific version, pass `--version <X.Y.Z>`. To skip CRD installation (when managing them out-of-band), pass `--set crds.install=false`. To allow `helm uninstall` to remove CRDs as well, pass `--set crds.keep=false`. See the [chart README](charts/sonarr-operator/README.md) for the full values reference.
+
+### Installation (raw manifests — alternative)
+
+Render the chart locally or use the per-release CRD asset:
 
 ```bash
+# Option A: render from chart source
+helm template sonarr-operator charts/sonarr-operator \
+  --namespace sonarr-operator-system | kubectl apply -f -
+
+# Option B: download CRDs from a release and apply the static deploy/ manifests
+kubectl apply -f https://github.com/devopsarr/k8s-operator-sonarr/releases/latest/download/crds.yaml
 kubectl apply -f deploy/namespace.yaml
 kubectl apply -f deploy/rbac.yaml
 kubectl apply -f deploy/deployment.yaml
 ```
 
-3. **Create a Sonarr Instance Reference**
+### Create a Sonarr instance
 
-First, create a secret with your Sonarr API key:
+A minimal example lives at [deploy/examples/sonarr-minimal.yaml](deploy/examples/sonarr-minimal.yaml).
 
 ```bash
+# Optional: pre-create an API key Secret (omit to have the operator generate one)
 kubectl create secret generic sonarr-api-key \
-  --from-literal=api-key=YOUR_SONARR_API_KEY
+  --from-literal=api-key="$(openssl rand -hex 16)"
+
+kubectl apply -f deploy/examples/sonarr-minimal.yaml
+kubectl wait sonarr/sonarr --for=condition=Ready --timeout=5m
 ```
 
-Then create the Sonarr instance reference:
-
-```yaml
-apiVersion: devopsarr.io/v1alpha1
-kind: Sonarr
-metadata:
-  name: my-sonarr
-spec:
-  url: "http://sonarr.example.com:8989"
-  apiKeySecretRef:
-    name: sonarr-api-key
-    key: api-key
-```
-
-4. **Create Resources**
+### Create child resources
 
 ```yaml
 apiVersion: devopsarr.io/v1alpha1
@@ -110,7 +115,7 @@ metadata:
   name: anime
 spec:
   sonarrInstanceRef:
-    name: my-sonarr
+    name: sonarr
   label: "anime"
 ---
 apiVersion: devopsarr.io/v1alpha1

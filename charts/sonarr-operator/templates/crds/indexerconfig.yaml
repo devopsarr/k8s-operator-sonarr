@@ -1,24 +1,38 @@
+{{- if .Values.crds.install }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: sonarrtags.devopsarr.io
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrindexerconfigs.devopsarr.io
 spec:
   group: devopsarr.io
   names:
     categories: []
-    kind: SonarrTag
-    plural: sonarrtags
+    kind: SonarrIndexerConfig
+    plural: sonarrindexerconfigs
     shortNames:
-    - stag
-    singular: sonarrtag
+    - sic
+    singular: sonarrindexerconfig
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.label
-      name: Label
+    - jsonPath: .spec.sonarrInstanceRef.name
+      name: Instance
       type: string
-    - jsonPath: .status.id
-      name: ID
+    - jsonPath: .spec.rssSyncInterval
+      name: RSS Interval
       type: integer
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
@@ -29,18 +43,36 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for SonarrTagSpec via `CustomResource`
+        description: Auto-generated derived type for SonarrIndexerConfigSpec via `CustomResource`
         properties:
           spec:
             description: |-
-              SonarrTag represents a tag in Sonarr
-              Tags are used to organize and filter series, profiles, and other resources
+              SonarrIndexerConfig configures global indexer settings for a Sonarr instance.
+              Only one SonarrIndexerConfig per Sonarr instance is allowed.
+              Note: This is different from SonarrIndexer which configures individual indexers.
             properties:
-              label:
-                description: Tag label (must be lowercase)
-                type: string
+              maximumSize:
+                description: Maximum release size in MB (0 = unlimited)
+                format: int32
+                nullable: true
+                type: integer
+              minimumAge:
+                description: Minimum age in minutes before downloading (usenet)
+                format: int32
+                nullable: true
+                type: integer
+              retention:
+                description: Retention in days (0 = unlimited)
+                format: int32
+                nullable: true
+                type: integer
+              rssSyncInterval:
+                description: RSS sync interval in minutes (0 = disabled, minimum 10)
+                format: int32
+                nullable: true
+                type: integer
               sonarrInstanceRef:
-                description: Reference to the SonarrInstance
+                description: Reference to the Sonarr instance
                 properties:
                   name:
                     default: ''
@@ -52,7 +84,6 @@ spec:
                     type: string
                 type: object
             required:
-            - label
             - sonarrInstanceRef
             type: object
           status:
@@ -92,11 +123,6 @@ spec:
                   - type
                   type: object
                 type: array
-              id:
-                description: Sonarr Tag ID
-                format: int32
-                nullable: true
-                type: integer
               observedGeneration:
                 default: 0
                 description: Observed generation
@@ -105,9 +131,10 @@ spec:
             type: object
         required:
         - spec
-        title: SonarrTag
+        title: SonarrIndexerConfig
         type: object
     served: true
     storage: true
     subresources:
       status: {}
+{{- end }}

@@ -1,11 +1,33 @@
 {
     "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+    "separate-pull-requests": false,
+    "plugins": [
+        {
+            "type": "linked-versions",
+            "groupName": "sonarr-operator",
+            "components": [
+                "sonarr-operator",
+                "sonarr-operator-chart"
+            ]
+        }
+    ],
     "packages": {
         ".": {
             "release-type": "rust",
-            "initial-version": "0.1.0",
+            "component": "sonarr-operator",
+            "package-name": "sonarr-operator",
+            "include-component-in-tag": false,
             "extra-files": [
                 "deploy/deployment.yaml"
+            ]
+        },
+        "charts/sonarr-operator": {
+            "release-type": "helm",
+            "component": "sonarr-operator-chart",
+            "package-name": "sonarr-operator-chart",
+            "include-component-in-tag": true,
+            "extra-files": [
+                "Chart.yaml"
             ]
         }
     }

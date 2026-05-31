@@ -1,23 +1,37 @@
+{{- if .Values.crds.install }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: sonarrindexers.devopsarr.io
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrimportlists.devopsarr.io
 spec:
   group: devopsarr.io
   names:
     categories: []
-    kind: SonarrIndexer
-    plural: sonarrindexers
+    kind: SonarrImportList
+    plural: sonarrimportlists
     shortNames:
-    - sidx
-    singular: sonarrindexer
+    - sil
+    singular: sonarrimportlist
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.name
       name: Name
       type: string
-    - jsonPath: .spec.indexerType
+    - jsonPath: .spec.listType
       name: Type
       type: string
     - jsonPath: .status.id
@@ -32,145 +46,152 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for SonarrIndexerSpec via `CustomResource`
+        description: Auto-generated derived type for SonarrImportListSpec via `CustomResource`
         properties:
           spec:
             description: |-
-              SonarrIndexer represents an indexer configuration in Sonarr
-              Indexers are sources for finding releases (Newznab, Torznab, etc.)
+              SonarrImportList represents an import list configuration in Sonarr
+              Import lists automatically add series from external sources (Trakt, Plex, etc.)
             properties:
               config:
-                description: Indexer-specific configuration
+                default:
+                  accessToken: null
+                  apiKey: null
+                  authUser: null
+                  baseUrl: null
+                  languageProfileId: null
+                  listId: null
+                  listname: null
+                  profileIds: []
+                  tagIds: []
+                  traktListType: null
+                  username: null
+                description: Import list configuration
                 properties:
-                  additionalParameters:
-                    description: Additional parameters
+                  accessToken:
+                    description: Access token (for Trakt/Plex)
                     nullable: true
                     type: string
-                  animeCategories:
-                    default: []
-                    description: Anime categories
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  animeStandardFormatSearch:
-                    default: false
-                    description: Search anime in standard format
-                    type: boolean
                   apiKey:
-                    description: API key (can reference a secret)
+                    description: API key (for Sonarr import)
                     nullable: true
                     type: string
-                  apiKeySecretRef:
-                    description: API key from secret reference
-                    nullable: true
-                    properties:
-                      key:
-                        description: Key in the secret
-                        type: string
-                      name:
-                        description: Name of the secret
-                        type: string
-                    required:
-                    - key
-                    - name
-                    type: object
-                  apiPath:
-                    description: 'API path (default: /api)'
+                  authUser:
+                    description: Auth user (for Trakt)
                     nullable: true
                     type: string
                   baseUrl:
-                    description: Base URL for the indexer
+                    description: Base URL (for Sonarr import)
                     nullable: true
                     type: string
-                  categories:
+                  languageProfileId:
+                    description: Language profile ID (deprecated in v4)
+                    format: int32
+                    nullable: true
+                    type: integer
+                  listId:
+                    description: List ID
+                    nullable: true
+                    type: string
+                  listname:
+                    description: List name/ID
+                    nullable: true
+                    type: string
+                  profileIds:
                     default: []
-                    description: Categories to search
+                    description: Profile IDs (for Sonarr import)
                     items:
                       format: int32
                       type: integer
                     type: array
-                  cookie:
-                    description: Cookie (for some indexers)
-                    nullable: true
-                    type: string
-                  minimumSeeders:
-                    description: Minimum seeders (for torrent indexers)
-                    format: int32
-                    nullable: true
-                    type: integer
-                  passkey:
-                    description: Passkey (for some indexers)
-                    nullable: true
-                    type: string
-                  passwordSecretRef:
-                    description: Password secret reference (for some indexers)
-                    nullable: true
-                    properties:
-                      key:
-                        description: Key in the secret
-                        type: string
-                      name:
-                        description: Name of the secret
-                        type: string
-                    required:
-                    - key
-                    - name
-                    type: object
-                  seedRatio:
-                    description: Seed ratio (for torrent indexers)
-                    format: double
-                    nullable: true
-                    type: number
-                  seedTime:
-                    description: Seed time (for torrent indexers)
+                  tagIds:
+                    default: []
+                    description: Tag IDs (for Sonarr import)
+                    items:
+                      format: int32
+                      type: integer
+                    type: array
+                  traktListType:
+                    description: Trakt list type
                     format: int32
                     nullable: true
                     type: integer
                   username:
-                    description: Username (for some indexers)
+                    description: Username (for various services)
                     nullable: true
                     type: string
                 type: object
-              downloadClientId:
-                description: Download client ID to use
+              enableAutomaticAdd:
+                default: true
+                description: Enable automatic add
+                type: boolean
+              listOrder:
+                default: 0
+                description: List order
                 format: int32
-                nullable: true
                 type: integer
-              enableAutomaticSearch:
-                default: true
-                description: Enable automatic search
-                type: boolean
-              enableInteractiveSearch:
-                default: true
-                description: Enable interactive search
-                type: boolean
-              enableRss:
-                default: true
-                description: Enable RSS feeds
-                type: boolean
-              indexerType:
-                description: Indexer type (Newznab, Torznab, etc.)
+              listType:
+                description: Import list type/implementation
                 enum:
-                - newznab
-                - torznab
-                - fanzub
-                - broadcasthenet
-                - filelist
-                - hdbits
-                - iptorrents
-                - nyaa
-                - torrentrss
-                - torrentleech
+                - sonarrImport
+                - traktListImport
+                - traktUserImport
+                - traktPopularImport
+                - plexImport
+                - imdbListImport
+                - customImport
+                - simklImport
+                - aniListImport
+                - myAnimeListImport
+                type: string
+              monitorNewItems:
+                default: all
+                description: Monitor new items
+                enum:
+                - all
+                - none
                 type: string
               name:
-                description: Indexer name
+                description: Import list name
                 type: string
-              priority:
-                default: 25
-                description: Priority for this indexer
+              qualityProfileId:
+                description: Quality profile ID to use
                 format: int32
                 type: integer
+              rootFolderPath:
+                description: Root folder path for imported series
+                type: string
+              searchForMissingEpisodes:
+                default: false
+                description: Search for missing episodes when adding
+                type: boolean
+              seasonFolder:
+                default: true
+                description: Use season folders
+                type: boolean
+              seriesType:
+                default: standard
+                description: Series type
+                enum:
+                - standard
+                - daily
+                - anime
+                type: string
+              shouldMonitor:
+                default: all
+                description: Monitor type for imported series
+                enum:
+                - all
+                - future
+                - missing
+                - existing
+                - firstSeason
+                - latestSeason
+                - pilot
+                - monitorSpecials
+                - unmonitorSpecials
+                - none
+                type: string
               sonarrInstanceRef:
                 description: Reference to the SonarrInstance
                 properties:
@@ -185,15 +206,16 @@ spec:
                 type: object
               tags:
                 default: []
-                description: Tags for this indexer
+                description: Tags for imported series
                 items:
                   format: int32
                   type: integer
                 type: array
             required:
-            - config
-            - indexerType
+            - listType
             - name
+            - qualityProfileId
+            - rootFolderPath
             - sonarrInstanceRef
             type: object
           status:
@@ -234,7 +256,7 @@ spec:
                   type: object
                 type: array
               id:
-                description: Sonarr Indexer ID
+                description: Sonarr Import List ID
                 format: int32
                 nullable: true
                 type: integer
@@ -246,9 +268,10 @@ spec:
             type: object
         required:
         - spec
-        title: SonarrIndexer
+        title: SonarrImportList
         type: object
     served: true
     storage: true
     subresources:
       status: {}
+{{- end }}

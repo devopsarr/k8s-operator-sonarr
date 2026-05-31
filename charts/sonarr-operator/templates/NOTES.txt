@@ -1,0 +1,16 @@
+{{ .Chart.Name | upper }} {{ .Chart.Version }} installed in namespace {{ .Release.Namespace }}.
+
+Operator image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+
+Next steps:
+  1. Verify the operator is running:
+       kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "sonarr-operator.fullname" . }}
+
+  2. Create a Sonarr instance. A minimal example is available at:
+       https://github.com/devopsarr/k8s-operator-sonarr/blob/main/deploy/examples/sonarr-minimal.yaml
+
+  3. Apply it (after creating the referenced API key Secret):
+       kubectl apply -f sonarr-minimal.yaml
+       kubectl wait sonarr/sonarr --for=condition=Ready --timeout=5m
+
+CRD installation: {{ if .Values.crds.install }}enabled{{ if .Values.crds.keep }} (annotated `helm.sh/resource-policy: keep`){{ end }}.{{ else }}DISABLED — make sure CRDs are installed out-of-band before applying any Sonarr CR.{{ end }}
