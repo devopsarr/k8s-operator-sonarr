@@ -19,7 +19,7 @@ spec:
       serviceAccountName: sonarr-operator
       containers:
         - name: operator
-          image: ghcr.io/devopsarr/k8s-operator-sonarr:v0.1.0 # x-release-please-version
+          image: ghcr.io/devopsarr/k8s-operator-sonarr:v0.2.0 # x-release-please-version
           imagePullPolicy: IfNotPresent
           env:
             - name: RUST_LOG
