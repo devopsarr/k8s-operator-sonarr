@@ -162,7 +162,7 @@ jobs:
 
       - name: Get short SHA
         id: short-sha
-        run: echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -203,7 +203,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s: [ v1.28, v1.29, latest ]
+        k8s: [ v1.32, v1.33, latest ]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -222,6 +222,7 @@ jobs:
         with:
           version: ${{ matrix.k8s }}
           k3d-name: sonarr-operator-test
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           k3d-args: '--no-lb --no-rollback --k3s-arg
             --disable=traefik,servicelb,metrics-server@server:*'
 

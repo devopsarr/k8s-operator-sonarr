@@ -174,7 +174,7 @@ jobs:
                   helm package charts/sonarr-operator -d dist/
                   pkg=$(ls dist/sonarr-operator-*.tgz)
                   echo "path=${pkg}" >> "$GITHUB_OUTPUT"
-                  echo "name=$(basename ${pkg})" >> "$GITHUB_OUTPUT"
+                  echo "name=$(basename "${pkg}")" >> "$GITHUB_OUTPUT"
 
             - name: Push chart to GHCR
               id: push
