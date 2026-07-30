@@ -1,0 +1,77 @@
+[package]
+name = "sonarr-operator"
+version = "0.1.0"
+edition = "2024"
+authors = ["DevOpsArr"]
+description = "Kubernetes Operator for Sonarr written in Rust using kube-rs"
+license = "GPL-3.0"
+repository = "https://github.com/devopsarr/k8s-operator-sonarr"
+keywords = ["kubernetes", "operator", "sonarr", "kube-rs"]
+
+[lib]
+name = "sonarr_operator"
+path = "src/lib.rs"
+
+[dependencies]
+# Kubernetes client and runtime
+kube = { version = "3.0.0", features = ["runtime", "derive", "client", "rustls-tls"], default-features = false }
+k8s-openapi = { version = "0.27.0", features = ["latest", "schemars"] }
+
+# Crypto provider for rustls (required at runtime)
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+# JSON Schema generation for CRDs
+schemars = "1"
+
+# Sonarr API client
+sonarr = { version = "0.1" }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Logging and tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Base64 encoding for secrets
+base64 = "0.22"
+
+[dev-dependencies]
+assert-json-diff = "2"
+reqwest = { version = "0.12", features = ["json"] }
+anyhow = "1"
+
+[[bin]]
+name = "sonarr-operator"
+path = "src/main.rs"
+
+[[bin]]
+name = "crdgen"
+path = "src/bin/crdgen.rs"
+
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+
+[[test]]
+name = "e2e"
+path = "tests/e2e/main.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "z"
+strip = true

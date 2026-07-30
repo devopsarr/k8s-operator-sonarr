@@ -1,0 +1,25 @@
+# Sonarr CRD instance for E2E tests
+#
+# The operator reconciles this CR to create:
+#   - A Deployment running Sonarr (with init container for config.xml)
+#   - A NodePort Service exposed on port 30989
+#   - A PVC for Sonarr configuration storage
+#
+# Prerequisites:
+#   - The API key Secret must be created before applying this CR
+#   - The k3d cluster must map host port 8989 to node port 30989
+---
+apiVersion: devopsarr.io/v1alpha1
+kind: Sonarr
+metadata:
+  name: sonarr
+  namespace: default
+spec:
+  apiKeySecretRef:
+    name: sonarr-api-key
+    key: api-key
+  service:
+    serviceType: NodePort
+    nodePort: 30989
+  config:
+    authenticationMethod: None

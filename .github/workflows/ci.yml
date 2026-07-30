@@ -1,0 +1,379 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ============================================
+  # Lint and Format Check
+  # ============================================
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Check formatting
+        run: cargo fmt -- --check
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+  # ============================================
+  # Unit Tests
+  # ============================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run unit tests
+        run: cargo test --lib
+
+  # ============================================
+  # Generate CRDs (shared artifact)
+  #
+  # The chart's templates/crds/ directory is the source of truth. We
+  # regenerate it here and also publish a plain (un-templated) copy for
+  # consumers that don't run helm (integration/e2e tests, docs).
+  # ============================================
+  generate-crds:
+    name: Generate CRDs
+    runs-on: ubuntu-latest
+    needs: [ lint ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: azure/setup-helm@v4
+      - name: Generate helm-templated CRDs into the chart
+        run: cargo run --bin crdgen -- --split charts/sonarr-operator/templates/crds
+          --helm
+      - name: Render plain CRDs for downstream consumers
+        run: |
+          mkdir -p artifacts/crds
+          # `helm template` with crds.install=true strips the Helm guard
+          # and produces vanilla CRDs that can be `kubectl apply`-ed.
+          helm template sonarr-operator charts/sonarr-operator \
+            --namespace sonarr-operator-system \
+            --set crds.install=true \
+            --set crds.keep=false \
+            --show-only 'templates/crds/*.yaml' \
+            > artifacts/crds/all.yaml
+      - name: Upload CRDs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: crds
+          path: artifacts/crds/
+
+  # ============================================
+  # Generate CRD Documentation
+  # ============================================
+  docs:
+    name: Generate Docs
+    runs-on: ubuntu-latest
+    needs: [ generate-crds ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Download CRDs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: crds
+          path: artifacts/crds/
+      - name: Install crdoc
+        run: go install fybrik.io/crdoc@latest
+      - name: Generate CRD documentation
+        run: |
+          mkdir -p docs/api
+          crdoc --resources artifacts/crds --output docs/api/crd-reference.md
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs
+          path: docs/api/
+
+  # ============================================
+  # Helm Chart Lint & Template (Phase 2)
+  # ============================================
+  chart-lint:
+    name: Helm Chart Lint
+    runs-on: ubuntu-latest
+    needs: [ lint ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: azure/setup-helm@v4
+      - name: Regenerate helm-wrapped CRDs into the chart
+        run: cargo run --bin crdgen -- --split charts/sonarr-operator/templates/crds
+          --helm
+      - name: Fail on CRD drift
+        run: |
+          if ! git diff --quiet -- charts/sonarr-operator/templates/crds; then
+            echo "::error::Chart CRDs are out of sync with the Rust types."
+            echo "Run: cargo run --bin crdgen -- --split charts/sonarr-operator/templates/crds --helm"
+            git diff -- charts/sonarr-operator/templates/crds | head -200
+            exit 1
+          fi
+      - name: helm lint
+        run: helm lint charts/sonarr-operator
+      - name: helm template (defaults)
+        run: helm template sonarr-operator charts/sonarr-operator --namespace
+          sonarr-operator-system
+      - name: helm template (crds.install=false)
+        run: helm template sonarr-operator charts/sonarr-operator --namespace
+          sonarr-operator-system --set crds.install=false
+
+  # ============================================
+  # Build and Push Docker Image
+  # ============================================
+  build-image:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    needs: [ lint ]
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      short-sha: ${{ steps.short-sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get short SHA
+        id: short-sha
+        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================
+  # Integration Tests (CRD validation)
+  # ============================================
+  integration-test:
+    name: Integration Tests (K8s ${{ matrix.k8s }})
+    runs-on: ubuntu-latest
+    needs: [ generate-crds ]
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s: [ v1.32, v1.33, latest ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: integration-test
+
+      - name: Download CRDs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: crds
+          path: artifacts/crds/
+
+      - name: Set up k3d cluster
+        uses: nolar/setup-k3d-k3s@v1
+        with:
+          version: ${{ matrix.k8s }}
+          k3d-name: sonarr-operator-test
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          k3d-args: '--no-lb --no-rollback --k3s-arg
+            --disable=traefik,servicelb,metrics-server@server:*'
+
+      - name: Install CRDs
+        run: kubectl apply -f artifacts/crds/
+
+      - name: Wait for CRDs
+        run: |
+          for crd in sonarrs sonarrtags sonarrrootfolders sonarrindexers \
+                     sonarrdownloadclients sonarrnotifications \
+                     sonarrqualityprofiles sonarrseries sonarrautotags \
+                     sonarrcustomformats sonarrdelayprofiles \
+                     sonarrdownloadclientconfigs sonarrimportlists \
+                     sonarrindexerconfigs sonarrlanguageprofiles \
+                     sonarrmediamanagementconfigs sonarrmetadatas \
+                     sonarrnamingconfigs sonarrqualitydefinitions; do
+            kubectl wait --for=condition=established "crd/${crd}.devopsarr.io" --timeout=60s
+          done
+
+      - name: Run integration tests
+        run: cargo test --test integration -- --ignored --test-threads=1
+
+      - name: Cleanup
+        if: always()
+        run: kubectl delete namespace sonarr-operator-test --ignore-not-found
+
+  # ============================================
+  # E2E Tests (Full reconciliation with Sonarr)
+  # ============================================
+  e2e-test:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [ generate-crds, build-image ]
+    permissions:
+      contents: read
+      packages: read
+    env:
+      API_KEY: ${{ github.run_id }}${{ github.sha }}${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: azure/setup-helm@v4
+
+      - name: Download CRDs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: crds
+          path: artifacts/crds/
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull operator image
+        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{
+          needs.build-image.outputs.short-sha }}
+
+      - name: Install k3d
+        run: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+      - name: Create k3d cluster with port mapping
+        run: |
+          k3d cluster create sonarr-e2e \
+            --port 8989:30989@server:0 \
+            --k3s-arg '--disable=traefik,servicelb,metrics-server@server:*'
+
+      - name: Import operator image into k3d
+        run: |
+          k3d image import \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-image.outputs.short-sha }} \
+            --cluster sonarr-e2e
+
+      - name: Install operator via Helm chart
+        run: |
+          helm install sonarr-operator charts/sonarr-operator \
+            --namespace sonarr-operator-system \
+            --create-namespace \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set image.tag=${{ needs.build-image.outputs.short-sha }} \
+            --wait --timeout=3m
+          for crd in sonarrs sonarrtags sonarrrootfolders sonarrindexers \
+                     sonarrdownloadclients sonarrnotifications \
+                     sonarrqualityprofiles sonarrseries sonarrautotags \
+                     sonarrcustomformats sonarrdelayprofiles \
+                     sonarrdownloadclientconfigs sonarrimportlists \
+                     sonarrindexerconfigs sonarrlanguageprofiles \
+                     sonarrmediamanagementconfigs sonarrmetadatas \
+                     sonarrnamingconfigs sonarrqualitydefinitions; do
+            kubectl wait --for=condition=established "crd/${crd}.devopsarr.io" --timeout=60s
+          done
+          echo "Operator is running"
+
+      - name: Create API key secret
+        run: |
+          kubectl create secret generic sonarr-api-key \
+            --from-literal=api-key="${API_KEY}" \
+            -n default
+
+      - name: Apply Sonarr CR
+        run: |
+          kubectl apply -f tests/e2e/fixtures/sonarr-instance.yaml
+          echo "Waiting for Sonarr CR to be ready..."
+          kubectl wait --for=jsonpath='{.status.conditions[?(@.type=="Ready")].status}'=True \
+            sonarr/sonarr -n default --timeout=360s
+          echo "Sonarr instance is ready"
+
+      - name: Wait for Sonarr API to be available
+        run: |
+          echo "Waiting for Sonarr API on localhost:8989..."
+          for i in $(seq 1 90); do
+            if curl -sf -H "X-Api-Key: ${API_KEY}" \
+                 http://localhost:8989/api/v3/system/status > /dev/null 2>&1; then
+              echo "Sonarr API is ready"
+              exit 0
+            fi
+            echo "Attempt $i/90 - waiting..."
+            sleep 2
+          done
+          echo "Sonarr API not reachable"
+          kubectl get pods -A
+          kubectl logs -l app.kubernetes.io/name=sonarr -n default --tail=50 || true
+          exit 1
+
+      - name: Run E2E tests
+        env:
+          SONARR_API_KEY: ${{ env.API_KEY }}
+          SONARR_URL: http://localhost:8989
+        run: cargo test --test e2e -- --ignored --test-threads=1 --nocapture
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Operator logs ==="
+          kubectl logs -n sonarr-operator-system -l app.kubernetes.io/name=sonarr-operator --tail=200 || echo "No operator logs"
+          echo ""
+          echo "=== Sonarr pod logs ==="
+          kubectl logs -l app.kubernetes.io/name=sonarr -n default --all-containers --tail=100 || echo "No Sonarr logs"
+          echo ""
+          echo "=== Sonarr CR status ==="
+          kubectl get sonarr -A -o yaml 2>/dev/null || true
+          echo ""
+          echo "=== All pods ==="
+          kubectl get pods -A -o wide
+          echo ""
+          echo "=== All devopsarr resources ==="
+          kubectl get sonarrs,sonarrtags,sonarrrootfolders,sonarrqualityprofiles -A 2>/dev/null || true
+          echo ""
+          echo "=== Events ==="
+          kubectl get events -A --sort-by='.lastTimestamp' | tail -40

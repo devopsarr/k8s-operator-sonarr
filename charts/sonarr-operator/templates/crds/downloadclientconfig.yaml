@@ -1,0 +1,136 @@
+{{- if .Values.crds.install }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrdownloadclientconfigs.devopsarr.io
+spec:
+  group: devopsarr.io
+  names:
+    categories: []
+    kind: SonarrDownloadClientConfig
+    plural: sonarrdownloadclientconfigs
+    shortNames:
+    - sdcc
+    singular: sonarrdownloadclientconfig
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.sonarrInstanceRef.name
+      name: Instance
+      type: string
+    - jsonPath: .spec.enableCompletedDownloadHandling
+      name: Completed Handling
+      type: boolean
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for SonarrDownloadClientConfigSpec via `CustomResource`
+        properties:
+          spec:
+            description: |-
+              SonarrDownloadClientConfig configures global download client settings for a Sonarr instance.
+              Only one SonarrDownloadClientConfig per Sonarr instance is allowed.
+              Note: This is different from SonarrDownloadClient which configures individual download clients.
+            properties:
+              autoRedownloadFailed:
+                description: Automatically redownload failed releases
+                nullable: true
+                type: boolean
+              autoRedownloadFailedFromInteractiveSearch:
+                description: Automatically redownload failed releases from interactive search
+                nullable: true
+                type: boolean
+              downloadClientWorkingFolders:
+                description: Working folders for download client (container path mapping)
+                nullable: true
+                type: string
+              enableCompletedDownloadHandling:
+                description: Enable completed download handling
+                nullable: true
+                type: boolean
+              sonarrInstanceRef:
+                description: Reference to the Sonarr instance
+                properties:
+                  name:
+                    default: ''
+                    description: Name of the SonarrInstance resource
+                    type: string
+                  namespace:
+                    description: Namespace of the SonarrInstance (optional, defaults to same namespace)
+                    nullable: true
+                    type: string
+                type: object
+            required:
+            - sonarrInstanceRef
+            type: object
+          status:
+            nullable: true
+            properties:
+              conditions:
+                default: []
+                description: Current conditions
+                items:
+                  description: Condition contains details for one aspect of the current state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating details about the transition. This may be an empty string.
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                default: 0
+                description: Observed generation
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        title: SonarrDownloadClientConfig
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end }}

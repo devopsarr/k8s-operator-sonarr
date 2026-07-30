@@ -1,0 +1,17 @@
+/.github
+/target
+/tests
+/docs
+/deploy
+.vscode
+.cursorrules
+.idea
+Dockerfile
+.dockerignore
+.gitignore
+Makefile
+README.md
+AI_PLAN.md
+LICENSE
+release-please-config.json
+.release-please-manifest.json

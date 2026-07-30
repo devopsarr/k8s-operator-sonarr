@@ -1,0 +1,197 @@
+{{- if .Values.crds.install }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrautotags.devopsarr.io
+spec:
+  group: devopsarr.io
+  names:
+    categories: []
+    kind: SonarrAutoTag
+    plural: sonarrautotags
+    shortNames:
+    - sat
+    singular: sonarrautotag
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: Name
+      type: string
+    - jsonPath: .spec.removeTagsAutomatically
+      name: RemoveAuto
+      type: boolean
+    - jsonPath: .status.id
+      name: ID
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for SonarrAutoTagSpec via `CustomResource`
+        properties:
+          spec:
+            description: |-
+              SonarrAutoTag represents an auto-tagging rule configuration in Sonarr
+              Auto-tagging automatically applies tags to series based on conditions
+            properties:
+              name:
+                description: Auto-tag rule name
+                type: string
+              removeTagsAutomatically:
+                default: false
+                description: Remove tags automatically when conditions no longer match
+                type: boolean
+              sonarrInstanceRef:
+                description: Reference to the SonarrInstance
+                properties:
+                  name:
+                    default: ''
+                    description: Name of the SonarrInstance resource
+                    type: string
+                  namespace:
+                    description: Namespace of the SonarrInstance (optional, defaults to same namespace)
+                    nullable: true
+                    type: string
+                type: object
+              specifications:
+                default: []
+                description: Specifications (conditions) for this auto-tag rule
+                items:
+                  properties:
+                    fields:
+                      default:
+                        max: null
+                        min: null
+                        value: null
+                      description: Fields/values for this specification
+                      properties:
+                        max:
+                          description: Maximum value (for year specifications)
+                          format: int32
+                          nullable: true
+                          type: integer
+                        min:
+                          description: Minimum value (for year specifications)
+                          format: int32
+                          nullable: true
+                          type: integer
+                        value:
+                          description: Value for the specification (path, genre, network, etc.)
+                          nullable: true
+                          type: string
+                      type: object
+                    implementation:
+                      description: Specification type/implementation
+                      enum:
+                      - rootFolderSpecification
+                      - genreSpecification
+                      - yearSpecification
+                      - seriesTypeSpecification
+                      - qualityProfileSpecification
+                      - networkSpecification
+                      - originalLanguageSpecification
+                      - tagSpecification
+                      type: string
+                    name:
+                      description: Specification name
+                      type: string
+                    negate:
+                      default: false
+                      description: Negate this condition
+                      type: boolean
+                    required:
+                      default: true
+                      description: This condition is required
+                      type: boolean
+                  required:
+                  - implementation
+                  - name
+                  type: object
+                type: array
+              tags:
+                default: []
+                description: Tags to apply when conditions match
+                items:
+                  format: int32
+                  type: integer
+                type: array
+            required:
+            - name
+            - sonarrInstanceRef
+            type: object
+          status:
+            nullable: true
+            properties:
+              conditions:
+                default: []
+                description: Current conditions
+                items:
+                  description: Condition contains details for one aspect of the current state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating details about the transition. This may be an empty string.
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              id:
+                description: Sonarr Auto Tag ID
+                format: int32
+                nullable: true
+                type: integer
+              observedGeneration:
+                default: 0
+                description: Observed generation
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        title: SonarrAutoTag
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end }}

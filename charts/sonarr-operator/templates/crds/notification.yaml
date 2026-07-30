@@ -1,0 +1,477 @@
+{{- if .Values.crds.install }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrnotifications.devopsarr.io
+spec:
+  group: devopsarr.io
+  names:
+    categories: []
+    kind: SonarrNotification
+    plural: sonarrnotifications
+    shortNames:
+    - snot
+    singular: sonarrnotification
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: Name
+      type: string
+    - jsonPath: .spec.notificationType
+      name: Type
+      type: string
+    - jsonPath: .status.id
+      name: ID
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for SonarrNotificationSpec via `CustomResource`
+        properties:
+          spec:
+            description: |-
+              SonarrNotification represents a notification/connect configuration in Sonarr
+              Notifications are used to alert on events (Discord, Telegram, Webhook, etc.)
+            properties:
+              config:
+                description: Notification configuration
+                properties:
+                  apiKeySecretRef:
+                    description: API key secret reference
+                    nullable: true
+                    properties:
+                      key:
+                        description: Key in the secret
+                        type: string
+                      name:
+                        description: Name of the secret
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  appTokenSecretRef:
+                    description: Gotify app token secret reference
+                    nullable: true
+                    properties:
+                      key:
+                        description: Key in the secret
+                        type: string
+                      name:
+                        description: Name of the secret
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  arguments:
+                    description: Script arguments
+                    nullable: true
+                    type: string
+                  authTokenSecretRef:
+                    description: Auth token secret reference
+                    nullable: true
+                    properties:
+                      key:
+                        description: Key in the secret
+                        type: string
+                      name:
+                        description: Name of the secret
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  avatar:
+                    description: Discord avatar
+                    nullable: true
+                    type: string
+                  bcc:
+                    default: []
+                    description: BCC addresses
+                    items:
+                      type: string
+                    type: array
+                  botTokenSecretRef:
+                    description: Telegram bot token secret reference
+                    nullable: true
+                    properties:
+                      key:
+                        description: Key in the secret
+                        type: string
+                      name:
+                        description: Name of the secret
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  cc:
+                    default: []
+                    description: CC addresses
+                    items:
+                      type: string
+                    type: array
+                  channel:
+                    description: Slack channel
+                    nullable: true
+                    type: string
+                  chatId:
+                    description: Telegram chat ID
+                    nullable: true
+                    type: string
+                  clickUrl:
+                    description: Click URL
+                    nullable: true
+                    type: string
+                  devices:
+                    default: []
+                    description: Device list
+                    items:
+                      type: string
+                    type: array
+                  discordUsername:
+                    description: Discord username
+                    nullable: true
+                    type: string
+                  expire:
+                    description: Expire after (seconds)
+                    format: int32
+                    nullable: true
+                    type: integer
+                  from:
+                    description: From address
+                    nullable: true
+                    type: string
+                  host:
+                    description: Server host
+                    nullable: true
+                    type: string
+                  icon:
+                    description: Slack icon
+                    nullable: true
+                    type: string
+                  mapTo:
+                    description: Notify on specific library sections
+                    nullable: true
+                    type: string
+                  method:
+                    description: HTTP Method (1 = POST, 2 = PUT)
+                    format: int32
+                    nullable: true
+                    type: integer
+                  ntfyTags:
+                    default: []
+                    description: Ntfy tags
+                    items:
+                      type: string
+                    type: array
+                  passwordSecretRef:
+                    description: Password secret reference
+                    nullable: true
+                    properties:
+                      key:
+                        description: Key in the secret
+                        type: string
+                      name:
+                        description: Name of the secret
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  path:
+                    description: Path to script
+                    nullable: true
+                    type: string
+                  port:
+                    description: SMTP port
+                    format: int32
+                    nullable: true
+                    type: integer
+                  priority:
+                    description: Priority level
+                    format: int32
+                    nullable: true
+                    type: integer
+                  requireEncryption:
+                    default: false
+                    description: Require encryption
+                    type: boolean
+                  retry:
+                    description: Retry interval (seconds)
+                    format: int32
+                    nullable: true
+                    type: integer
+                  sendSilently:
+                    default: false
+                    description: Send silently
+                    type: boolean
+                  server:
+                    description: SMTP server
+                    nullable: true
+                    type: string
+                  serverUrl:
+                    description: Ntfy server URL
+                    nullable: true
+                    type: string
+                  slackWebhookUrl:
+                    description: Slack webhook URL
+                    nullable: true
+                    type: string
+                  sound:
+                    description: Sound
+                    nullable: true
+                    type: string
+                  to:
+                    default: []
+                    description: To addresses
+                    items:
+                      type: string
+                    type: array
+                  topic:
+                    description: Ntfy topic
+                    nullable: true
+                    type: string
+                  updateLibrary:
+                    default: false
+                    description: Update library
+                    type: boolean
+                  url:
+                    description: Webhook URL
+                    nullable: true
+                    type: string
+                  useSsl:
+                    default: false
+                    description: Use SSL
+                    type: boolean
+                  userKeySecretRef:
+                    description: User key secret reference
+                    nullable: true
+                    properties:
+                      key:
+                        description: Key in the secret
+                        type: string
+                      name:
+                        description: Name of the secret
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  username:
+                    description: Username for basic auth
+                    nullable: true
+                    type: string
+                  webhookUrl:
+                    description: Discord webhook URL
+                    nullable: true
+                    type: string
+                type: object
+              name:
+                description: Notification name
+                type: string
+              notificationType:
+                description: Notification type
+                enum:
+                - Apprise
+                - CustomScript
+                - Discord
+                - Email
+                - Emby
+                - Gotify
+                - Join
+                - Kodi
+                - Mailgun
+                - Ntfy
+                - Plex
+                - Prowl
+                - Pushbullet
+                - Pushover
+                - SendGrid
+                - Signal
+                - Simplepush
+                - Slack
+                - SynologyIndexer
+                - Telegram
+                - Trakt
+                - Twitter
+                - Webhook
+                type: string
+              sonarrInstanceRef:
+                description: Reference to the SonarrInstance
+                properties:
+                  name:
+                    default: ''
+                    description: Name of the SonarrInstance resource
+                    type: string
+                  namespace:
+                    description: Namespace of the SonarrInstance (optional, defaults to same namespace)
+                    nullable: true
+                    type: string
+                type: object
+              tags:
+                default: []
+                description: Tags for this notification
+                items:
+                  format: int32
+                  type: integer
+                type: array
+              triggers:
+                default:
+                  includeHealthWarnings: false
+                  onApplicationUpdate: false
+                  onDownload: false
+                  onEpisodeFileDelete: false
+                  onEpisodeFileDeleteForUpgrade: false
+                  onGrab: false
+                  onHealthIssue: false
+                  onHealthRestored: false
+                  onImportComplete: false
+                  onManualInteractionRequired: false
+                  onRename: false
+                  onSeriesAdd: false
+                  onSeriesDelete: false
+                  onUpgrade: false
+                description: Event triggers
+                properties:
+                  includeHealthWarnings:
+                    default: false
+                    description: Include health warnings
+                    type: boolean
+                  onApplicationUpdate:
+                    default: false
+                    description: On application update
+                    type: boolean
+                  onDownload:
+                    default: false
+                    description: On download (episode is downloaded)
+                    type: boolean
+                  onEpisodeFileDelete:
+                    default: false
+                    description: On episode file delete
+                    type: boolean
+                  onEpisodeFileDeleteForUpgrade:
+                    default: false
+                    description: On episode file delete for upgrade
+                    type: boolean
+                  onGrab:
+                    default: false
+                    description: On grab (episode is grabbed)
+                    type: boolean
+                  onHealthIssue:
+                    default: false
+                    description: On health issue
+                    type: boolean
+                  onHealthRestored:
+                    default: false
+                    description: On health restored
+                    type: boolean
+                  onImportComplete:
+                    default: false
+                    description: On import complete
+                    type: boolean
+                  onManualInteractionRequired:
+                    default: false
+                    description: On manual interaction required
+                    type: boolean
+                  onRename:
+                    default: false
+                    description: On rename
+                    type: boolean
+                  onSeriesAdd:
+                    default: false
+                    description: On series add
+                    type: boolean
+                  onSeriesDelete:
+                    default: false
+                    description: On series delete
+                    type: boolean
+                  onUpgrade:
+                    default: false
+                    description: On upgrade (episode is upgraded)
+                    type: boolean
+                type: object
+            required:
+            - config
+            - name
+            - notificationType
+            - sonarrInstanceRef
+            type: object
+          status:
+            nullable: true
+            properties:
+              conditions:
+                default: []
+                description: Current conditions
+                items:
+                  description: Condition contains details for one aspect of the current state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating details about the transition. This may be an empty string.
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              id:
+                description: Sonarr Notification ID
+                format: int32
+                nullable: true
+                type: integer
+              observedGeneration:
+                default: 0
+                description: Observed generation
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        title: SonarrNotification
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end }}

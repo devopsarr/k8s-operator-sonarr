@@ -1,0 +1,257 @@
+//! Common traits and utilities for Sonarr sub-resource controllers
+//!
+//! This module provides:
+//! - Generic controller run function with built-in finalizer support
+//! - Generic error policy
+//! - Common status update functions
+//! - Shared utilities to reduce boilerplate across controllers
+
+use std::fmt::Debug;
+use std::future::Future;
+use std::hash::Hash;
+use std::sync::Arc;
+use std::time::Duration;
+
+use futures::StreamExt;
+use k8s_openapi::NamespaceResourceScope;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
+use kube::api::{Api, Patch, PatchParams};
+use kube::runtime::controller::{Action, Controller};
+use kube::runtime::finalizer::{Event, finalizer};
+use kube::runtime::watcher;
+use kube::{Client, Resource, ResourceExt};
+use serde::{Serialize, de::DeserializeOwned};
+use serde_json::json;
+use tracing::{debug, error, info, warn};
+
+use crate::Context;
+use crate::crds::{FINALIZER, SonarrInstanceRef};
+use crate::error::{Error, Result};
+
+use super::{ready_condition, update_conditions};
+
+// Re-export the get_sonarr_config from tag module as the canonical implementation
+pub use super::tag::get_sonarr_config;
+
+/// Trait for resource specs that reference a Sonarr instance
+pub trait HasSonarrInstanceRef {
+    fn sonarr_instance_ref(&self) -> &SonarrInstanceRef;
+}
+
+/// Generic error policy for all controllers
+pub fn error_policy<R>(
+    resource_name: &'static str,
+) -> impl Fn(Arc<R>, &Error, Arc<Context>) -> Action
+where
+    R: Resource + ResourceExt,
+{
+    move |obj: Arc<R>, err: &Error, _ctx: Arc<Context>| {
+        error!(
+            "Error reconciling {} {}: {:?}",
+            resource_name,
+            obj.name_any(),
+            err
+        );
+        Action::requeue(Duration::from_secs(60))
+    }
+}
+
+/// Wrapper that handles the common finalizer pattern for sub-resources
+/// This eliminates boilerplate from individual controllers by wrapping
+/// the kube-rs finalizer function with our standard error handling.
+/// On apply errors, it writes a failure status condition before propagating.
+pub async fn reconcile_with_finalizer<R, ApplyFn, ApplyFut, CleanupFn, CleanupFut>(
+    obj: Arc<R>,
+    ctx: Arc<Context>,
+    apply_fn: ApplyFn,
+    cleanup_fn: CleanupFn,
+) -> Result<Action>
+where
+    R: Resource<Scope = NamespaceResourceScope, DynamicType = ()>
+        + Clone
+        + Debug
+        + DeserializeOwned
+        + Serialize
+        + Send
+        + Sync
+        + 'static,
+    ApplyFn: FnOnce(Arc<R>, Arc<Context>) -> ApplyFut,
+    ApplyFut: Future<Output = Result<Action>> + Send,
+    CleanupFn: FnOnce(Arc<R>, Arc<Context>) -> CleanupFut,
+    CleanupFut: Future<Output = Result<Action>> + Send,
+{
+    let client = &ctx.client;
+    let namespace = obj
+        .namespace()
+        .ok_or(Error::MissingObjectKey(".metadata.namespace"))?;
+
+    let api: Api<R> = Api::namespaced(client.clone(), &namespace);
+    let failure_client = client.clone();
+    let failure_namespace = namespace.clone();
+
+    finalizer(&api, FINALIZER, obj.clone(), |event| async {
+        match event {
+            Event::Apply(resource) => {
+                let resource_name = resource.name_any();
+                match apply_fn(resource.clone(), ctx.clone()).await {
+                    Ok(action) => Ok(action),
+                    Err(e) => {
+                        // Write failure status so tests/users can see the error
+                        let existing_conditions = extract_conditions(&*resource);
+                        if let Err(status_err) = update_status_failure::<R>(
+                            &failure_client,
+                            &failure_namespace,
+                            &resource_name,
+                            &format!("{}", e),
+                            existing_conditions,
+                        )
+                        .await
+                        {
+                            warn!(
+                                "Failed to write error status for {}: {:?}",
+                                resource_name, status_err
+                            );
+                        }
+                        Err(e)
+                    }
+                }
+            }
+            Event::Cleanup(resource) => cleanup_fn(resource, ctx.clone()).await,
+        }
+    })
+    .await
+    .map_err(|e| Error::FinalizerError(Box::new(e)))
+}
+
+/// Extract existing conditions from a resource via serde.
+/// This allows generic extraction without requiring a trait on each CRD type.
+fn extract_conditions<R: Serialize>(obj: &R) -> Vec<Condition> {
+    serde_json::to_value(obj)
+        .ok()
+        .and_then(|v| v.get("status")?.get("conditions")?.clone().into())
+        .and_then(|c| serde_json::from_value::<Vec<Condition>>(c).ok())
+        .unwrap_or_default()
+}
+
+/// Start a generic controller for a Sonarr sub-resource
+pub async fn run_controller<R, ReconcileFn, ReconcileFut>(
+    client: Client,
+    context: Arc<Context>,
+    resource_name: &'static str,
+    reconcile_fn: ReconcileFn,
+) where
+    R: Resource<DynamicType = ()> + Clone + Debug + DeserializeOwned + Send + Sync + 'static,
+    R::DynamicType: Default + Eq + Hash + Clone,
+    ReconcileFn: FnMut(Arc<R>, Arc<Context>) -> ReconcileFut + Send + Sync + 'static + Clone,
+    ReconcileFut: Future<Output = Result<Action>> + Send + 'static,
+{
+    let resources = Api::<R>::all(client.clone());
+
+    info!("Starting {} controller", resource_name);
+
+    let error_handler = error_policy::<R>(resource_name);
+
+    Controller::new(resources, watcher::Config::default())
+        .shutdown_on_signal()
+        .run(reconcile_fn, error_handler, context)
+        .for_each(|res| async move {
+            match res {
+                Ok(o) => debug!("Reconciled {}: {:?}", resource_name, o),
+                Err(e) => error!("Reconcile error: {:?}", e),
+            }
+        })
+        .await;
+}
+
+/// Update the status of a Sonarr resource with success
+pub async fn update_status_success<R>(
+    client: &Client,
+    namespace: &str,
+    name: &str,
+    sonarr_id: i32,
+    generation: i64,
+    existing_conditions: Vec<Condition>,
+) -> Result<()>
+where
+    R: Resource<Scope = k8s_openapi::NamespaceResourceScope>
+        + Clone
+        + Debug
+        + DeserializeOwned
+        + Serialize,
+    R: Resource<DynamicType = ()>,
+{
+    let api: Api<R> = Api::namespaced(client.clone(), namespace);
+    let mut conditions = existing_conditions;
+    update_conditions(
+        &mut conditions,
+        ready_condition(true, "Synced", "Resource synced with Sonarr"),
+    );
+
+    let status = json!({
+        "status": {
+            "conditions": conditions,
+            "id": sonarr_id,
+            "observedGeneration": generation
+        }
+    });
+
+    api.patch_status(
+        name,
+        &PatchParams::apply("sonarr-operator"),
+        &Patch::Merge(&status),
+    )
+    .await
+    .map_err(Error::KubeError)?;
+
+    info!(
+        "Updated {} {}/{} status with id={}",
+        std::any::type_name::<R>(),
+        namespace,
+        name,
+        sonarr_id
+    );
+    Ok(())
+}
+
+/// Update the status of a Sonarr resource with failure
+pub async fn update_status_failure<R>(
+    client: &Client,
+    namespace: &str,
+    name: &str,
+    error_message: &str,
+    existing_conditions: Vec<Condition>,
+) -> Result<()>
+where
+    R: Resource<Scope = k8s_openapi::NamespaceResourceScope>
+        + Clone
+        + Debug
+        + DeserializeOwned
+        + Serialize,
+    R: Resource<DynamicType = ()>,
+{
+    let api: Api<R> = Api::namespaced(client.clone(), namespace);
+    let mut conditions = existing_conditions;
+    update_conditions(
+        &mut conditions,
+        ready_condition(false, "Error", error_message),
+    );
+
+    let status = json!({
+        "status": {
+            "conditions": conditions
+        }
+    });
+
+    api.patch_status(
+        name,
+        &PatchParams::apply("sonarr-operator"),
+        &Patch::Merge(&status),
+    )
+    .await
+    .map_err(Error::KubeError)?;
+
+    Ok(())
+}
+
+/// Common requeue duration for successful reconciliation
+pub const REQUEUE_DURATION: Duration = Duration::from_secs(300);

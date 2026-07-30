@@ -1,0 +1,277 @@
+{{- if .Values.crds.install }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrimportlists.devopsarr.io
+spec:
+  group: devopsarr.io
+  names:
+    categories: []
+    kind: SonarrImportList
+    plural: sonarrimportlists
+    shortNames:
+    - sil
+    singular: sonarrimportlist
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: Name
+      type: string
+    - jsonPath: .spec.listType
+      name: Type
+      type: string
+    - jsonPath: .status.id
+      name: ID
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for SonarrImportListSpec via `CustomResource`
+        properties:
+          spec:
+            description: |-
+              SonarrImportList represents an import list configuration in Sonarr
+              Import lists automatically add series from external sources (Trakt, Plex, etc.)
+            properties:
+              config:
+                default:
+                  accessToken: null
+                  apiKey: null
+                  authUser: null
+                  baseUrl: null
+                  languageProfileId: null
+                  listId: null
+                  listname: null
+                  profileIds: []
+                  tagIds: []
+                  traktListType: null
+                  username: null
+                description: Import list configuration
+                properties:
+                  accessToken:
+                    description: Access token (for Trakt/Plex)
+                    nullable: true
+                    type: string
+                  apiKey:
+                    description: API key (for Sonarr import)
+                    nullable: true
+                    type: string
+                  authUser:
+                    description: Auth user (for Trakt)
+                    nullable: true
+                    type: string
+                  baseUrl:
+                    description: Base URL (for Sonarr import)
+                    nullable: true
+                    type: string
+                  languageProfileId:
+                    description: Language profile ID (deprecated in v4)
+                    format: int32
+                    nullable: true
+                    type: integer
+                  listId:
+                    description: List ID
+                    nullable: true
+                    type: string
+                  listname:
+                    description: List name/ID
+                    nullable: true
+                    type: string
+                  profileIds:
+                    default: []
+                    description: Profile IDs (for Sonarr import)
+                    items:
+                      format: int32
+                      type: integer
+                    type: array
+                  tagIds:
+                    default: []
+                    description: Tag IDs (for Sonarr import)
+                    items:
+                      format: int32
+                      type: integer
+                    type: array
+                  traktListType:
+                    description: Trakt list type
+                    format: int32
+                    nullable: true
+                    type: integer
+                  username:
+                    description: Username (for various services)
+                    nullable: true
+                    type: string
+                type: object
+              enableAutomaticAdd:
+                default: true
+                description: Enable automatic add
+                type: boolean
+              listOrder:
+                default: 0
+                description: List order
+                format: int32
+                type: integer
+              listType:
+                description: Import list type/implementation
+                enum:
+                - sonarrImport
+                - traktListImport
+                - traktUserImport
+                - traktPopularImport
+                - plexImport
+                - imdbListImport
+                - customImport
+                - simklImport
+                - aniListImport
+                - myAnimeListImport
+                type: string
+              monitorNewItems:
+                default: all
+                description: Monitor new items
+                enum:
+                - all
+                - none
+                type: string
+              name:
+                description: Import list name
+                type: string
+              qualityProfileId:
+                description: Quality profile ID to use
+                format: int32
+                type: integer
+              rootFolderPath:
+                description: Root folder path for imported series
+                type: string
+              searchForMissingEpisodes:
+                default: false
+                description: Search for missing episodes when adding
+                type: boolean
+              seasonFolder:
+                default: true
+                description: Use season folders
+                type: boolean
+              seriesType:
+                default: standard
+                description: Series type
+                enum:
+                - standard
+                - daily
+                - anime
+                type: string
+              shouldMonitor:
+                default: all
+                description: Monitor type for imported series
+                enum:
+                - all
+                - future
+                - missing
+                - existing
+                - firstSeason
+                - latestSeason
+                - pilot
+                - monitorSpecials
+                - unmonitorSpecials
+                - none
+                type: string
+              sonarrInstanceRef:
+                description: Reference to the SonarrInstance
+                properties:
+                  name:
+                    default: ''
+                    description: Name of the SonarrInstance resource
+                    type: string
+                  namespace:
+                    description: Namespace of the SonarrInstance (optional, defaults to same namespace)
+                    nullable: true
+                    type: string
+                type: object
+              tags:
+                default: []
+                description: Tags for imported series
+                items:
+                  format: int32
+                  type: integer
+                type: array
+            required:
+            - listType
+            - name
+            - qualityProfileId
+            - rootFolderPath
+            - sonarrInstanceRef
+            type: object
+          status:
+            nullable: true
+            properties:
+              conditions:
+                default: []
+                description: Current conditions
+                items:
+                  description: Condition contains details for one aspect of the current state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating details about the transition. This may be an empty string.
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              id:
+                description: Sonarr Import List ID
+                format: int32
+                nullable: true
+                type: integer
+              observedGeneration:
+                default: 0
+                description: Observed generation
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        title: SonarrImportList
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end }}

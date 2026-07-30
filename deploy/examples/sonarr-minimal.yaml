@@ -1,0 +1,40 @@
+# Minimal Sonarr instance.
+#
+# This example creates a single Sonarr deployment with default settings.
+# The operator will reconcile this resource into a Deployment, Service,
+# PVC, and (if configured) Ingress/HTTPRoute.
+#
+# Prerequisites:
+#   1. The sonarr-operator chart must be installed in the cluster.
+#   2. Either omit `apiKeySecretRef` (the operator will auto-generate a Secret)
+#      OR pre-create a Secret with your chosen key:
+#
+#        kubectl create secret generic sonarr-api-key \
+#          --from-literal=api-key="$(openssl rand -hex 16)" \
+#          -n default
+#
+# Apply:
+#   kubectl apply -f sonarr-minimal.yaml
+#   kubectl wait sonarr/sonarr --for=condition=Ready --timeout=5m
+---
+apiVersion: devopsarr.io/v1alpha1
+kind: Sonarr
+metadata:
+  name: sonarr
+  namespace: default
+spec:
+  # Reference to a Secret containing the API key. Omit to have the
+  # operator auto-generate one.
+  apiKeySecretRef:
+    name: sonarr-api-key
+    key: api-key
+
+  # Expose Sonarr via a ClusterIP Service on the default port (8989).
+  service:
+    serviceType: ClusterIP
+
+  # Application configuration written into config.xml on first start.
+  config:
+    # Use Forms authentication in production; None is shown here for
+    # the simplest possible quickstart.
+    authenticationMethod: None

@@ -1,0 +1,304 @@
+{{- if .Values.crds.install }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  {{- if or .Values.crds.keep .Values.crds.annotations }}
+  annotations:
+    {{- if .Values.crds.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.crds.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.crds.additionalLabels }}
+  labels:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+  name: sonarrdownloadclients.devopsarr.io
+spec:
+  group: devopsarr.io
+  names:
+    categories: []
+    kind: SonarrDownloadClient
+    plural: sonarrdownloadclients
+    shortNames:
+    - sdc
+    singular: sonarrdownloadclient
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: Name
+      type: string
+    - jsonPath: .spec.downloadClientType
+      name: Type
+      type: string
+    - jsonPath: .status.id
+      name: ID
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for SonarrDownloadClientSpec via `CustomResource`
+        properties:
+          spec:
+            description: |-
+              SonarrDownloadClient represents a download client configuration in Sonarr
+              Download clients are used to download releases (qBittorrent, Transmission, SABnzbd, etc.)
+            properties:
+              config:
+                description: Download client configuration
+                properties:
+                  addPaused:
+                    default: false
+                    description: Add paused
+                    type: boolean
+                  apiKeySecretRef:
+                    description: API key from secret (for some clients)
+                    nullable: true
+                    properties:
+                      key:
+                        description: Key in the secret
+                        type: string
+                      name:
+                        description: Name of the secret
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  firstAndLast:
+                    default: false
+                    description: First and last (for qBittorrent)
+                    type: boolean
+                  host:
+                    description: Host address
+                    nullable: true
+                    type: string
+                  initialState:
+                    description: 'Initial state (for qBittorrent: 0 = Start, 1 = ForceStart, 2 = Pause)'
+                    format: int32
+                    nullable: true
+                    type: integer
+                  nzbFolder:
+                    description: NZB folder (for blackhole)
+                    nullable: true
+                    type: string
+                  olderTvPriority:
+                    description: Older TV priority (0 = Last, 1 = First)
+                    format: int32
+                    nullable: true
+                    type: integer
+                  passwordSecretRef:
+                    description: Password from secret
+                    nullable: true
+                    properties:
+                      key:
+                        description: Key in the secret
+                        type: string
+                      name:
+                        description: Name of the secret
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  port:
+                    description: Port number
+                    format: int32
+                    nullable: true
+                    type: integer
+                  recentTvPriority:
+                    description: Recent TV priority (0 = Last, 1 = First)
+                    format: int32
+                    nullable: true
+                    type: integer
+                  rpcPath:
+                    description: RPC path (for Aria2)
+                    nullable: true
+                    type: string
+                  saveMagnetFiles:
+                    default: false
+                    description: Save magnet files (for blackhole)
+                    type: boolean
+                  secretTokenSecretRef:
+                    description: Secret token (for Aria2)
+                    nullable: true
+                    properties:
+                      key:
+                        description: Key in the secret
+                        type: string
+                      name:
+                        description: Name of the secret
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  sequentialOrder:
+                    default: false
+                    description: Sequential order (for qBittorrent)
+                    type: boolean
+                  strmFolder:
+                    description: Strm folder (for pneumatic)
+                    nullable: true
+                    type: string
+                  torrentFolder:
+                    description: Torrent folder (for blackhole)
+                    nullable: true
+                    type: string
+                  tvCategory:
+                    description: TV category
+                    nullable: true
+                    type: string
+                  tvDirectory:
+                    description: TV directory
+                    nullable: true
+                    type: string
+                  urlBase:
+                    description: URL base path
+                    nullable: true
+                    type: string
+                  useSsl:
+                    default: false
+                    description: Use SSL
+                    type: boolean
+                  username:
+                    description: Username
+                    nullable: true
+                    type: string
+                  watchFolder:
+                    description: Watch folder (for blackhole)
+                    nullable: true
+                    type: string
+                type: object
+              downloadClientType:
+                description: Download client type
+                enum:
+                - Aria2
+                - Deluge
+                - Flood
+                - Hadouken
+                - Nzbget
+                - Nzbvortex
+                - Pneumatic
+                - QBittorrent
+                - RTorrent
+                - Sabnzbd
+                - TorrentBlackhole
+                - TorrentDownloadStation
+                - Transmission
+                - UsenetBlackhole
+                - UsenetDownloadStation
+                - UTorrent
+                - Vuze
+                type: string
+              enable:
+                default: true
+                description: Enable this download client
+                type: boolean
+              name:
+                description: Download client name
+                type: string
+              priority:
+                default: 1
+                description: Priority for this download client
+                format: int32
+                type: integer
+              removeCompletedDownloads:
+                default: true
+                description: Remove completed downloads
+                type: boolean
+              removeFailedDownloads:
+                default: true
+                description: Remove failed downloads
+                type: boolean
+              sonarrInstanceRef:
+                description: Reference to the SonarrInstance
+                properties:
+                  name:
+                    default: ''
+                    description: Name of the SonarrInstance resource
+                    type: string
+                  namespace:
+                    description: Namespace of the SonarrInstance (optional, defaults to same namespace)
+                    nullable: true
+                    type: string
+                type: object
+              tags:
+                default: []
+                description: Tags for this download client
+                items:
+                  format: int32
+                  type: integer
+                type: array
+            required:
+            - config
+            - downloadClientType
+            - name
+            - sonarrInstanceRef
+            type: object
+          status:
+            nullable: true
+            properties:
+              conditions:
+                default: []
+                description: Current conditions
+                items:
+                  description: Condition contains details for one aspect of the current state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating details about the transition. This may be an empty string.
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              id:
+                description: Sonarr Download Client ID
+                format: int32
+                nullable: true
+                type: integer
+              observedGeneration:
+                default: 0
+                description: Observed generation
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        title: SonarrDownloadClient
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end }}
