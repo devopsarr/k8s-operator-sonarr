@@ -1,325 +1,404 @@
 name: Release
 
 on:
-    push:
-        branches:
-            - main
-    workflow_dispatch:
-        inputs:
-            version:
-                description: 'Release version to (re)publish, e.g. v0.2.0 (both image and chart). Leave blank for release-please auto flow.'
-                required: false
-                type: string
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version to (re)publish, e.g. v0.2.0 (both image and chart). Leave blank for release-please auto flow.'
+        required: false
+        type: string
 
 permissions:
-    contents: write
-    pull-requests: write
-    packages: write
-    id-token: write # required for cosign keyless signing
+  contents: write
+  pull-requests: write
+  packages: write
+  id-token: write # required for cosign keyless signing
 
 env:
-    REGISTRY: ghcr.io
-    IMAGE_NAME: ${{ github.repository }}
-    # OCI repository for the operator chart. Note: the GHCR namespace must
-    # already exist as a package; first push will create it.
-    CHART_OCI_REPO: oci://ghcr.io/${{ github.repository_owner }}/charts
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  # OCI repository for the operator chart. Note: the GHCR namespace must
+  # already exist as a package; first push will create it.
+  CHART_OCI_REPO: oci://ghcr.io/${{ github.repository_owner }}/charts
 
 jobs:
-    # ============================================
-    # Release Please - Multi-Package Version Management
-    #
-    # Two linked packages:
-    #   - `.`                       (rust crate / operator binary)
-    #   - `charts/sonarr-operator`  (helm chart)
-    # Versions are kept in lockstep by the `linked-versions` plugin.
-    # ============================================
-    release-please:
-        name: Release Please
-        runs-on: ubuntu-latest
-        outputs:
-            # release-please-action@v4 emits per-package outputs keyed by `<path>--<name>`.
-            # For the root package the key is `.--<name>`, which works in expressions.
-            # We also expose the `releases_created` fallback and use `chart_released` in gates
-            # (linked-versions guarantees operator + chart release together).
-            operator_released: ${{ steps.release.outputs['.--release_created'] }}
-            operator_tag: ${{ steps.release.outputs['.--tag_name'] }}
-            operator_version: ${{ steps.release.outputs['.--version'] }}
-            chart_released: ${{
-                steps.release.outputs['charts/sonarr-operator--release_created']
-                }}
-            chart_tag: ${{ steps.release.outputs['charts/sonarr-operator--tag_name'] }}
-            chart_version: ${{ steps.release.outputs['charts/sonarr-operator--version'] }}
-            releases_created: ${{ steps.release.outputs.releases_created }}
-        steps:
-            - name: DevOpsArrBOT token
-              id: DevOpsArrBOT
-              uses: getsentry/action-github-app-token@v3
-              with:
-                  app_id: '305652'
-                  private_key: ${{ secrets.DEVOPSARRBOT_PRIVATE_KEY }}
+  # ============================================
+  # Release Please - Multi-Package Version Management
+  #
+  # Two linked packages:
+  #   - `.`                       (rust crate / operator binary)
+  #   - `charts/sonarr-operator`  (helm chart)
+  # Versions are kept in lockstep by the `linked-versions` plugin.
+  # ============================================
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      # release-please-action@v4 emits per-package outputs keyed by `<path>--<name>`.
+      # For the root package the key is `.--<name>`, which works in expressions.
+      # We also expose the `releases_created` fallback and use `chart_released` in gates
+      # (linked-versions guarantees operator + chart release together).
+      operator_released: ${{ steps.release.outputs['.--release_created'] }}
+      operator_tag: ${{ steps.release.outputs['.--tag_name'] }}
+      operator_version: ${{ steps.release.outputs['.--version'] }}
+      chart_released: ${{
+        steps.release.outputs['charts/sonarr-operator--release_created']
+        }}
+      chart_tag: ${{ steps.release.outputs['charts/sonarr-operator--tag_name'] }}
+      chart_version: ${{ steps.release.outputs['charts/sonarr-operator--version'] }}
+      releases_created: ${{ steps.release.outputs.releases_created }}
+    steps:
+      - name: DevOpsArrBOT token
+        id: DevOpsArrBOT
+        uses: getsentry/action-github-app-token@v3
+        with:
+          app_id: '305652'
+          private_key: ${{ secrets.DEVOPSARRBOT_PRIVATE_KEY }}
 
-            - name: Set DevOpsArrBOT config
-              run: |
-                  git config --global user.name "devopsarr[bot]"
-                  git config --global user.email "127950054+devopsarr[bot]@users.noreply.github.com"
+      - name: Set DevOpsArrBOT config
+        run: |
+          git config --global user.name "devopsarr[bot]"
+          git config --global user.email "127950054+devopsarr[bot]@users.noreply.github.com"
 
-            - uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
-                  token: ${{ steps.DevOpsArrBOT.outputs.token }}
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.DevOpsArrBOT.outputs.token }}
 
-            - name: Release Please
-              id: release
-              uses: googleapis/release-please-action@v4
-              with:
-                  token: ${{ steps.DevOpsArrBOT.outputs.token }}
+      - name: Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ steps.DevOpsArrBOT.outputs.token }}
 
-    # ============================================
-    # Build, Push & Sign Multi-arch Operator Image
-    # ============================================
-    build-and-push:
-        name: Build & Push Multi-arch Image
-        runs-on: ubuntu-latest
-        needs: release-please
-        # Auto flow: gate on release creation (via releases_created since `.--*` outputs
-        # are unreliable for root path). Manual flow: run when workflow_dispatch input is set.
-        if: ${{
-            (github.event_name == 'push' && needs.release-please.outputs.releases_created == 'true')
-            || (github.event_name == 'workflow_dispatch' && inputs.version != '')
-            }}
-        permissions:
-            contents: read
-            packages: write
-            id-token: write
+  # ============================================
+  # Build, Push & Sign Multi-arch Operator Image
+  # ============================================
+  # ============================================
+  # Build & Push per-arch Operator Images
+  #
+  # Splits the multi-arch build across native runners for speed:
+  #   - linux/amd64 on ubuntu-latest (x86_64)
+  #   - linux/arm64 on ubuntu-24.04-arm (aarch64)
+  #
+  # Each job builds and pushes an image `by-digest` (no tag). The merge job
+  # below stitches them into a multi-arch manifest, applies the semver tags,
+  # and cosign-signs the manifest.
+  # Reference: https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
+  # ============================================
+  build-per-arch:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    needs: release-please
+    if: ${{
+      (github.event_name == 'push' && needs.release-please.outputs.releases_created == 'true')
+      || (github.event_name == 'workflow_dispatch' && inputs.version != '')
+      }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version || needs.release-please.outputs.operator_tag }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          # Push a digest-only image (no tag); the merge job stitches them.
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=build-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.arch }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # ============================================
+  # Merge per-arch Digests + Sign Multi-arch Manifest
+  # ============================================
+  merge-and-sign:
+    name: Merge & Sign Multi-arch Image
+    runs-on: ubuntu-latest
+    needs: [release-please, build-per-arch]
+    if: ${{
+      (github.event_name == 'push' && needs.release-please.outputs.releases_created == 'true')
+      || (github.event_name == 'workflow_dispatch' && inputs.version != '')
+      }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # for cosign keyless
+    env:
+      RELEASE_VERSION: ${{ inputs.version || needs.release-please.outputs.operator_tag }}
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern=v{{version}},value=${{ env.RELEASE_VERSION }}
+            type=semver,pattern=v{{major}}.{{minor}},value=${{ env.RELEASE_VERSION }}
+            type=semver,pattern=v{{major}},value=${{ env.RELEASE_VERSION }}
+            type=raw,value=latest
+
+      - name: Create multi-arch manifest
+        working-directory: /tmp/digests
+        run: |
+          # docker/metadata-action emits DOCKER_METADATA_OUTPUT_JSON with the parsed tags.
+          # Build a single `imagetools create` invocation with all tags + all per-arch digests.
+          # shellcheck disable=SC2046  # word splitting is intentional here
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}"
+
+      - name: Sign the image (keyless)
         env:
-            RELEASE_VERSION: ${{ inputs.version || needs.release-please.outputs.operator_tag }}
-        steps:
-            - uses: actions/checkout@v4
-              with:
-                  ref: ${{ inputs.version || needs.release-please.outputs.operator_tag }}
+          COSIGN_EXPERIMENTAL: 'true'
+        run: |
+          set -euo pipefail
+          # A multi-arch image has one index (manifest list) digest that references
+          # all per-arch manifests. Sign the index once; cosign verify will still
+          # succeed for any tag pointing at it.
+          DIGEST=$(docker buildx imagetools inspect \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
+            --format '{{.Manifest.Digest}}')
+          cosign sign --yes "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}"
 
-            - name: Log in to GitHub Container Registry
-              uses: docker/login-action@v3
-              with:
-                  registry: ${{ env.REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
+  # ============================================
+  # Publish & Sign Operator Helm Chart (OCI)
+  # ============================================
+  publish-chart:
+    name: Publish Helm Chart
+    runs-on: ubuntu-latest
+    needs: [release-please, merge-and-sign]
+    # Auto flow: any release created (linked-versions means chart+operator go together).
+    # Manual flow: version input provided.
+    # `always()` lets us proceed even when merge-and-sign was skipped in chart-only scenarios
+    # (not possible with linked-versions today, but future-proofs the config).
+    if: ${{ always() && (
+      (github.event_name == 'push' && needs.release-please.outputs.releases_created == 'true')
+      || (github.event_name == 'workflow_dispatch' && inputs.version != '')
+      ) && (needs.merge-and-sign.result == 'success' || needs.merge-and-sign.result == 'skipped') }}
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version || needs.release-please.outputs.chart_tag }}
+    steps:
+      - name: DevOpsArrBOT token
+        id: DevOpsArrBOT
+        uses: getsentry/action-github-app-token@v3
+        with:
+          app_id: '305652'
+          private_key: ${{ secrets.DEVOPSARRBOT_PRIVATE_KEY }}
 
-            - name: Set up QEMU
-              uses: docker/setup-qemu-action@v3
+      - uses: actions/checkout@v4
+        with:
+          # Pull the tagged release commit so Chart.yaml has the right version.
+          # For manual runs, `version` is the operator tag (e.g. v0.2.0); the chart
+          # tag has the `sonarr-operator-chart-` prefix, but the commit is the same.
+          ref: ${{ inputs.version || needs.release-please.outputs.chart_tag }}
+          token: ${{ steps.DevOpsArrBOT.outputs.token }}
 
-            - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v3
+      - uses: azure/setup-helm@v4
+      - uses: sigstore/cosign-installer@v3
 
-            - name: Install cosign
-              uses: sigstore/cosign-installer@v3
+      # cosign resolves the OCI ref via ~/.docker/config.json;
+      # `helm registry login` does not populate that path, so we need
+      # docker login as well.
+      - name: Log in to GHCR (docker, for cosign)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Docker meta
-              id: meta
-              uses: docker/metadata-action@v5
-              with:
-                  images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-                  tags: |
-                      type=semver,pattern=v{{version}},value=${{ env.RELEASE_VERSION }}
-                      type=semver,pattern=v{{major}}.{{minor}},value=${{ env.RELEASE_VERSION }}
-                      type=semver,pattern=v{{major}},value=${{ env.RELEASE_VERSION }}
-                      type=raw,value=latest
+      - name: Log in to GHCR for Helm
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            helm registry login ${{ env.REGISTRY }} \
+            -u "${{ github.actor }}" --password-stdin
 
-            - name: Build and push multi-arch Docker image
-              id: build
-              uses: docker/build-push-action@v5
-              with:
-                  context: .
-                  platforms: linux/amd64,linux/arm64
-                  push: true
-                  tags: ${{ steps.meta.outputs.tags }}
-                  labels: ${{ steps.meta.outputs.labels }}
-                  cache-from: type=gha
-                  cache-to: type=gha,mode=max
+      - name: Package chart
+        id: package
+        run: |
+          helm package charts/sonarr-operator -d dist/
+          pkg=$(ls dist/sonarr-operator-*.tgz)
+          echo "path=${pkg}" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "${pkg}")" >> "$GITHUB_OUTPUT"
 
-            - name: Sign the image (keyless)
-              env:
-                  COSIGN_EXPERIMENTAL: "true"
-                  DIGEST: ${{ steps.build.outputs.digest }}
-                  TAGS: ${{ steps.meta.outputs.tags }}
-              run: |
-                  for tag in $TAGS; do
-                    cosign sign --yes "${tag}@${DIGEST}"
-                  done
+      - name: Push chart to GHCR
+        id: push
+        run: |
+          out=$(helm push "${{ steps.package.outputs.path }}" "${{ env.CHART_OCI_REPO }}" 2>&1)
+          echo "$out"
+          digest=$(echo "$out" | awk '/Digest:/ {print $2}')
+          if [ -z "$digest" ]; then
+            echo "::error::Could not extract chart digest from helm push output"
+            exit 1
+          fi
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
-    # ============================================
-    # Publish & Sign Operator Helm Chart (OCI)
-    # ============================================
-    publish-chart:
-        name: Publish Helm Chart
-        runs-on: ubuntu-latest
-        needs: [ release-please, build-and-push ]
-        # Auto flow: any release created (linked-versions means chart+operator go together).
-        # Manual flow: version input provided.
-        # `always()` lets us proceed even when build-and-push was skipped in chart-only scenarios
-        # (not possible with linked-versions today, but future-proofs the config).
-        if: ${{ always() && (
-            (github.event_name == 'push' && needs.release-please.outputs.releases_created == 'true')
-            || (github.event_name == 'workflow_dispatch' && inputs.version != '')
-            ) && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
-        permissions:
-            contents: write
-            packages: write
-            id-token: write
+      - name: Sign chart (keyless)
         env:
-            RELEASE_VERSION: ${{ inputs.version || needs.release-please.outputs.chart_tag }}
-        steps:
-            - name: DevOpsArrBOT token
-              id: DevOpsArrBOT
-              uses: getsentry/action-github-app-token@v3
-              with:
-                  app_id: '305652'
-                  private_key: ${{ secrets.DEVOPSARRBOT_PRIVATE_KEY }}
+          COSIGN_EXPERIMENTAL: 'true'
+        run: |
+          cosign sign --yes \
+            "${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/sonarr-operator@${{ steps.push.outputs.digest }}"
 
-            - uses: actions/checkout@v4
-              with:
-                  # Pull the tagged release commit so Chart.yaml has the right version.
-                  # For manual runs, `version` is the operator tag (e.g. v0.2.0); the chart
-                  # tag has the `sonarr-operator-chart-` prefix, but the commit is the same.
-                  ref: ${{ inputs.version || needs.release-please.outputs.chart_tag }}
-                  token: ${{ steps.DevOpsArrBOT.outputs.token }}
-
-            - uses: azure/setup-helm@v4
-            - uses: sigstore/cosign-installer@v3
-
-            # cosign resolves the OCI ref via ~/.docker/config.json;
-            # `helm registry login` does not populate that path, so we need
-            # docker login as well.
-            - name: Log in to GHCR (docker, for cosign)
-              uses: docker/login-action@v3
-              with:
-                  registry: ${{ env.REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
-
-            - name: Log in to GHCR for Helm
-              run: |
-                  echo "${{ secrets.GITHUB_TOKEN }}" | \
-                    helm registry login ${{ env.REGISTRY }} \
-                    -u "${{ github.actor }}" --password-stdin
-
-            - name: Package chart
-              id: package
-              run: |
-                  helm package charts/sonarr-operator -d dist/
-                  pkg=$(ls dist/sonarr-operator-*.tgz)
-                  echo "path=${pkg}" >> "$GITHUB_OUTPUT"
-                  echo "name=$(basename "${pkg}")" >> "$GITHUB_OUTPUT"
-
-            - name: Push chart to GHCR
-              id: push
-              run: |
-                  out=$(helm push "${{ steps.package.outputs.path }}" "${{ env.CHART_OCI_REPO }}" 2>&1)
-                  echo "$out"
-                  digest=$(echo "$out" | awk '/Digest:/ {print $2}')
-                  if [ -z "$digest" ]; then
-                    echo "::error::Could not extract chart digest from helm push output"
-                    exit 1
-                  fi
-                  echo "digest=${digest}" >> "$GITHUB_OUTPUT"
-
-            - name: Sign chart (keyless)
-              env:
-                  COSIGN_EXPERIMENTAL: "true"
-              run: |
-                  cosign sign --yes \
-                    "${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/sonarr-operator@${{ steps.push.outputs.digest }}"
-
-            - name: Attach chart tarball to GH release
-              env:
-                  GITHUB_TOKEN: ${{ steps.DevOpsArrBOT.outputs.token }}
-                  CHART_TAG: ${{ needs.release-please.outputs.chart_tag || format('sonarr-operator-chart-{0}', inputs.version) }}
-              run: |
-                  gh release upload "$CHART_TAG" \
-                    "${{ steps.package.outputs.path }}" --clobber
-
-    # ============================================
-    # Regenerate Docs & CRDs and Attach to Release
-    #
-    # Runs on operator release: regenerates the helm-templated CRDs in the
-    # chart (source of truth), derives the plain CRDs + docs from them,
-    # commits chart + docs back, and attaches plain CRDs to the GH release
-    # for users who don't use Helm.
-    # ============================================
-    publish-docs:
-        name: Publish Docs & CRDs
-        runs-on: ubuntu-latest
-        needs: release-please
-        if: ${{
-            (github.event_name == 'push' && needs.release-please.outputs.releases_created == 'true')
-            || (github.event_name == 'workflow_dispatch' && inputs.version != '')
-            }}
-        permissions:
-            contents: write
+      - name: Attach chart tarball to GH release
         env:
-            RELEASE_VERSION: ${{ inputs.version || needs.release-please.outputs.operator_tag }}
-        steps:
-            - name: DevOpsArrBOT token
-              id: DevOpsArrBOT
-              uses: getsentry/action-github-app-token@v3
-              with:
-                  app_id: '305652'
-                  private_key: ${{ secrets.DEVOPSARRBOT_PRIVATE_KEY }}
+          GITHUB_TOKEN: ${{ steps.DevOpsArrBOT.outputs.token }}
+          CHART_TAG: ${{ needs.release-please.outputs.chart_tag || format('sonarr-operator-chart-{0}', inputs.version) }}
+        run: |
+          gh release upload "$CHART_TAG" \
+            "${{ steps.package.outputs.path }}" --clobber
 
-            - uses: actions/checkout@v4
-              with:
-                  ref: main
-                  token: ${{ steps.DevOpsArrBOT.outputs.token }}
+  # ============================================
+  # Regenerate Docs & CRDs and Attach to Release
+  #
+  # Runs on operator release: regenerates the helm-templated CRDs in the
+  # chart (source of truth), derives the plain CRDs + docs from them,
+  # commits chart + docs back, and attaches plain CRDs to the GH release
+  # for users who don't use Helm.
+  # ============================================
+  publish-docs:
+    name: Publish Docs & CRDs
+    runs-on: ubuntu-latest
+    needs: release-please
+    if: ${{
+      (github.event_name == 'push' && needs.release-please.outputs.releases_created == 'true')
+      || (github.event_name == 'workflow_dispatch' && inputs.version != '')
+      }}
+    permissions:
+      contents: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version || needs.release-please.outputs.operator_tag }}
+    steps:
+      - name: DevOpsArrBOT token
+        id: DevOpsArrBOT
+        uses: getsentry/action-github-app-token@v3
+        with:
+          app_id: '305652'
+          private_key: ${{ secrets.DEVOPSARRBOT_PRIVATE_KEY }}
 
-            - uses: dtolnay/rust-toolchain@stable
-            - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ steps.DevOpsArrBOT.outputs.token }}
 
-            - uses: actions/setup-go@v5
-              with:
-                  go-version: '1.22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
 
-            - uses: azure/setup-helm@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
 
-            - name: Generate helm-templated CRDs into the chart
-              run: |
-                  rm -f charts/sonarr-operator/templates/crds/*.yaml
-                  cargo run --bin crdgen -- --split charts/sonarr-operator/templates/crds --helm
+      - uses: azure/setup-helm@v4
 
-            - name: Render plain CRDs (for docs and release asset)
-              run: |
-                  mkdir -p artifacts/crds
-                  helm template sonarr-operator charts/sonarr-operator \
-                    --namespace sonarr-operator-system \
-                    --set crds.install=true \
-                    --set crds.keep=false \
-                    --show-only 'templates/crds/*.yaml' \
-                    > artifacts/crds/all.yaml
+      - name: Generate helm-templated CRDs into the chart
+        run: |
+          rm -f charts/sonarr-operator/templates/crds/*.yaml
+          cargo run --bin crdgen -- --split charts/sonarr-operator/templates/crds --helm
 
-            - name: Generate documentation
-              run: |
-                  go install fybrik.io/crdoc@latest
-                  mkdir -p docs/api
-                  crdoc --resources artifacts/crds --output docs/api/crd-reference.md
+      - name: Render plain CRDs (for docs and release asset)
+        run: |
+          mkdir -p artifacts/crds
+          helm template sonarr-operator charts/sonarr-operator \
+            --namespace sonarr-operator-system \
+            --set crds.install=true \
+            --set crds.keep=false \
+            --show-only 'templates/crds/*.yaml' \
+            > artifacts/crds/all.yaml
 
-            - name: Commit and push docs
-              # Only commit docs when this is the auto release flow (avoid noisy re-commits
-              # when we re-run publish for an already-tagged version).
-              if: ${{ github.event_name == 'push' }}
-              run: |
-                  git config user.name "devopsarr[bot]"
-                  git config user.email "127950054+devopsarr[bot]@users.noreply.github.com"
-                  git add charts/sonarr-operator/templates/crds/ docs/api/
-                  if git diff --cached --quiet; then
-                    echo "No documentation changes to commit"
-                  else
-                    git commit -m "docs: update CRDs and documentation for ${{ env.RELEASE_VERSION }}"
-                    git push
-                  fi
+      - name: Generate documentation
+        run: |
+          go install fybrik.io/crdoc@latest
+          mkdir -p docs/api
+          crdoc --resources artifacts/crds --output docs/api/crd-reference.md
 
-            - name: Attach CRDs to release
-              env:
-                  GITHUB_TOKEN: ${{ steps.DevOpsArrBOT.outputs.token }}
-              run: |
-                  cp artifacts/crds/all.yaml crds.yaml
-                  tar czf crds.tar.gz -C artifacts/crds .
-                  gh release upload "$RELEASE_VERSION" crds.tar.gz crds.yaml --clobber
+      - name: Commit and push docs
+        # Only commit docs when this is the auto release flow (avoid noisy re-commits
+        # when we re-run publish for an already-tagged version).
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          git config user.name "devopsarr[bot]"
+          git config user.email "127950054+devopsarr[bot]@users.noreply.github.com"
+          git add charts/sonarr-operator/templates/crds/ docs/api/
+          if git diff --cached --quiet; then
+            echo "No documentation changes to commit"
+          else
+            git commit -m "docs: update CRDs and documentation for ${{ env.RELEASE_VERSION }}"
+            git push
+          fi
+
+      - name: Attach CRDs to release
+        env:
+          GITHUB_TOKEN: ${{ steps.DevOpsArrBOT.outputs.token }}
+        run: |
+          cp artifacts/crds/all.yaml crds.yaml
+          tar czf crds.tar.gz -C artifacts/crds .
+          gh release upload "$RELEASE_VERSION" crds.tar.gz crds.yaml --clobber
